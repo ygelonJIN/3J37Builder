@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -e
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SDK="$(cd "$ROOT/.fvm/versions/stable" && pwd)"
+export FLUTTER_ROOT="$SDK"
+export PUB_CACHE="${PUB_CACHE:-$ROOT/.fvm/pub-cache}"
+BIN_DIR="$SDK/bin"
+SHARED_NAME="$BIN_DIR/internal/shared.sh"
+PROG_NAME="flutter"
+unset CDPATH
+source "$SHARED_NAME"
+shared::execute "$@"

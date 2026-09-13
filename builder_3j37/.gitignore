@@ -1,0 +1,26 @@
+# Flutter / Dart
+.dart_tool/
+.packages
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# FVM - SDK and caches
+.fvm/
+.fvmrc
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Platform
+*.lock
+ios/Pods/
+ios/.symlinks/
+android/.gradle/
+android/local.properties
+
+# macOS
+.DS_Store
+*.swp

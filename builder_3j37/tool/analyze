@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -e
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SDK="$(cd "$ROOT/.fvm/versions/stable" && pwd)"
+DART="$SDK/bin/cache/dart-sdk/bin/dart"
+export HOME="$ROOT/.fvm/analyze-home"
+mkdir -p "$HOME"
+exec "$DART" analyze "$@"

@@ -1,0 +1,189 @@
+import 'package:flutter/foundation.dart';
+import '../models/enums.dart';
+import '../models/badge_data.dart';
+import 'dataset_loader.dart';
+import 'tuning_parser.dart';
+
+class BuilderState extends ChangeNotifier {
+  final DatasetLoader _loader = DatasetLoader();
+  Position _position = Position.pg;
+  int _heightInches = 75;
+  int _weightLb = 198;
+  int _wingspanInches = 78;
+  late List<int> _userRatings;  // what the user explicitly set
+  late List<int> _ratings;      // final ratings after constraints
+  final Map<int, BadgeTier?> _equippedBadges = {};
+
+  Position get position => _position;
+  int get heightInches => _heightInches;
+  int get weightLb => _weightLb;
+  int get wingspanInches => _wingspanInches;
+  List<int> get ratings => List.unmodifiable(_ratings);
+  Map<int, BadgeTier?> get equippedBadges => Map.unmodifiable(_equippedBadges);
+
+  BuilderState() {
+    _userRatings = List.filled(21, 25);
+    _ratings = List.filled(21, 25);
+    final lb = _loader.getLegalBody(_position);
+    if (lb != null) {
+      _heightInches = lb.defaultHeight;
+      final br = _loader.getBodyRange(_position, _heightInches);
+      if (br != null) { _weightLb = br.defaultWeight; _wingspanInches = br.defaultWingspan; }
+    }
+  }
+
+  void setPosition(Position pos) {
+    if (_position == pos) return;
+    _position = pos; _equippedBadges.clear();
+    final lb = _loader.getLegalBody(pos);
+    if (lb != null) {
+      _heightInches = lb.defaultHeight.clamp(lb.minHeight, lb.maxHeight);
+      final br = _loader.getBodyRange(pos, _heightInches);
+      if (br != null) { _weightLb = br.defaultWeight; _wingspanInches = br.defaultWingspan; }
+    }
+    _userRatings = List.filled(21, 25);
+    _ratings = List.filled(21, 25);
+    notifyListeners();
+  }
+
+  void setHeight(int inches) {
+    if (_heightInches == inches) return;
+    _heightInches = inches; _equippedBadges.clear();
+    final br = _loader.getBodyRange(_position, inches);
+    if (br != null) { _weightLb = _weightLb.clamp(br.minWeight, br.maxWeight); _wingspanInches = _wingspanInches.clamp(br.minWingspan, br.maxWingspan); }
+    notifyListeners();
+  }
+
+  void setWeight(int lb) { if (_weightLb == lb) return; _weightLb = lb; notifyListeners(); }
+  void setWingspan(int inches) { if (_wingspanInches == inches) return; _wingspanInches = inches; notifyListeners(); }
+
+  void setRating(int attrIndex, int value) {
+    final caps = getAttributeCaps();
+    final newValue = value.clamp(25, caps[attrIndex]);
+    if (_userRatings[attrIndex] == newValue) return;
+
+    final oldValue = _userRatings[attrIndex];
+    _userRatings[attrIndex] = newValue;
+    debugPrint('[BuilderState] setRating $attrIndex: $oldValue -> $newValue');
+
+    // Bidirectional constraint propagation:
+    if (newValue < oldValue) {
+      debugPrint('[BuilderState] Propagating down from $attrIndex');
+      _propagateDown(attrIndex, newValue, caps);
+    }
+
+    _applyConstraintsAndBudget(caps);
+    notifyListeners();
+  }
+
+  /// When user lowers a constrained attribute, also lower the source attributes
+  /// that were forcing it up.
+  void _propagateDown(int attrIndex, int newValue, List<int> caps) {
+    final hIdx = _heightInches - 64;
+    // Find all sources that constrain this attribute
+    for (int si = 0; si < 21; si++) {
+      final srcName = TuningParser.nativeNames[si];
+      final constraints = _loader.tuning.associatedConstraints[srcName]?[hIdx];
+      if (constraints == null) continue;
+      for (final c in constraints) {
+        if (c.targetAttr.isEmpty) continue;
+        final ti = TuningParser.nativeNames.indexOf(c.targetAttr);
+        if (ti != attrIndex) continue;
+        // This source constrains our target
+        // Constraint: target >= source - maxDelta
+        // So: source <= target + maxDelta
+        final maxSource = newValue + c.maxDelta;
+        if (_userRatings[si] > maxSource) {
+          debugPrint("[BuilderState] propagateDown: lowering source $si ($srcName) from ${_userRatings[si]} to $maxSource");
+          _userRatings[si] = maxSource.clamp(25, caps[si]);
+          // Cascade: recursively propagate down
+          _propagateDown(si, _userRatings[si], caps);
+        }
+      }
+    }
+  }
+
+  void _applyConstraintsAndBudget(List<int> caps) {
+    // Apply constraints from user-set ratings
+    final constrained = _loader.tuning.applyConstraints(_heightInches, _userRatings);
+    for (int i = 0; i < 21; i++) {
+      _ratings[i] = constrained[i].clamp(25, caps[i]);
+    }
+
+    // Check OVR budget
+    final ovr = _loader.getOvr(_position, _heightInches, _ratings);
+    if (ovr >= 99.0) {
+      // Find which attribute was most recently changed and reduce it
+      // Simple approach: reduce the highest-rated attribute that's above25
+      for (int i = 0; i < 21; i++) {
+        if (_userRatings[i] > 25) {
+          int lo = 25, hi = _userRatings[i], best = 25;
+          while (lo <= hi) {
+            final mid = (lo + hi) ~/ 2;
+            _userRatings[i] = mid;
+            final test = _loader.tuning.applyConstraints(_heightInches, _userRatings);
+            for (int j = 0; j < 21; j++) { _ratings[j] = test[j].clamp(25, caps[j]); }
+            final testOvr = _loader.getOvr(_position, _heightInches, _ratings);
+            if (testOvr < 99.0) { best = mid; lo = mid + 1; } else { hi = mid - 1; }
+          }
+          _userRatings[i] = best;
+        }
+      }
+      // Recompute final ratings
+      final finalConstrained = _loader.tuning.applyConstraints(_heightInches, _userRatings);
+      for (int i = 0; i < 21; i++) { _ratings[i] = finalConstrained[i].clamp(25, caps[i]); }
+    }
+  }
+
+  List<int> getAttributeCaps() => _loader.getAttributeCaps(_position, _heightInches, _weightLb, _wingspanInches);
+  List<int> getTokenBudget() => _loader.getTokenBudget(_heightInches, _ratings);
+
+  List<int> getTokensSpent() {
+    final spent = List.filled(6, 0);
+    _equippedBadges.forEach((badgeId, tier) {
+      if (tier != null) {
+        final cost = _loader.getBadgeTokenCost(badgeId, tier, _heightInches);
+        final badge = _loader.badgeDefinitions.firstWhere((b) => b.badgeId == badgeId, orElse: () => BadgeDef(badgeId: badgeId, name: '', discipline: Discipline.finishing, group: 0, minHeight: 0, maxHeight: 99, allowed: false));
+        spent[badge.discipline.index] += cost;
+      }
+    });
+    return spent;
+  }
+
+  List<int> getTokensRemaining() {
+    final budget = getTokenBudget(); final spent = getTokensSpent();
+    return List.generate(6, (i) => (budget[i] - spent[i]).clamp(0, 999));
+  }
+
+  List<BadgeStatus> getBadgeStatuses() {
+    return _loader.badgeDefinitions.map((badge) {
+      final highestTier = _loader.getHighestQualifiedTier(badge.badgeId, _ratings);
+      final equipped = _equippedBadges[badge.badgeId];
+      return BadgeStatus(badge: badge, highestTier: highestTier, equippedTier: equipped, heightEligible: badge.isHeightEligible(_heightInches));
+    }).toList();
+  }
+
+  bool equipBadge(int badgeId, BadgeTier tier) {
+    final cost = _loader.getBadgeTokenCost(badgeId, tier, _heightInches);
+    final badge = _loader.badgeDefinitions.firstWhere((b) => b.badgeId == badgeId, orElse: () => BadgeDef(badgeId: badgeId, name: '', discipline: Discipline.finishing, group: 0, minHeight: 0, maxHeight: 99, allowed: false));
+    if (getTokensRemaining()[badge.discipline.index] < cost) return false;
+    _equippedBadges[badgeId] = tier; notifyListeners(); return true;
+  }
+
+  void unequipBadge(int badgeId) { _equippedBadges.remove(badgeId); notifyListeners(); }
+
+  int get overallRating => _loader.getOvr(_position, _heightInches, _ratings).round().clamp(25, 99);
+  String get heightDisplay { final f = _heightInches ~/ 12; final i = _heightInches % 12; return "$f'$i\""; }
+  String get weightDisplay => '$_weightLb lbs';
+  String get wingspanDisplay { final f = _wingspanInches ~/ 12; final i = _wingspanInches % 12; return "$f'$i\""; }
+}
+
+class BadgeStatus {
+  final BadgeDef badge;
+  final BadgeTier? highestTier;
+  final BadgeTier? equippedTier;
+  final bool heightEligible;
+  const BadgeStatus({required this.badge, this.highestTier, this.equippedTier, required this.heightEligible});
+  bool get isUnlocked => highestTier != null && heightEligible;
+  bool get isEquipped => equippedTier != null;
+}
