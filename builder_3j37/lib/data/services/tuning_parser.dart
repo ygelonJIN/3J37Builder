@@ -100,18 +100,7 @@ class TuningParser {
     }
     if (key.startsWith('HeightBasedOverallLerp[')) {
       final m = RegExp(r'HeightBasedOverallLerp\[(\w+)\]\.Value\[(\d+)\]\[(\d+)\]').firstMatch(key);
-      if (m != null) {
-        final h = _hIdx(m.group(1)!);
-        final i0 = int.parse(m.group(2)!);
-        final i1 = int.parse(m.group(3)!);
-        final d = double.tryParse(val);
-        if (d != null) {
-          heightBasedOverallLerp.putIfAbsent(h, () => [25, 99, 25, 99]);
-          // i0=0: input range [inMin, inMax]; i0=1: output range [outMin, outMax]
-          final idx = i0 == 0 ? i1 : i1 + 2;
-          heightBasedOverallLerp[h]![idx] = d;
-        }
-      }
+      if (m != null) { final h = _hIdx(m.group(1)!); final i0 = int.parse(m.group(2)!); final i1 = int.parse(m.group(3)!); final d = double.tryParse(val); if (d != null) { heightBasedOverallLerp.putIfAbsent(h, () => [25.0, 99.0, 25.0, 99.0]); heightBasedOverallLerp[h]![i0 * 2 + i1] = d; } }
       return;
     }
     if (key.startsWith('PerPosition[')) {
@@ -165,10 +154,8 @@ class TuningParser {
   double computeOvr(int heightInches, List<int> ratings, String position) {
     final hIdx = heightInches - 64;
     final lerp = heightBasedOverallLerp[hIdx];
-    final inMin = lerp?[0] ?? 25.0;
-    final inMax = lerp?[1] ?? 99.0;
-    final outMin = lerp?[2] ?? 25.0;
-    final outMax = lerp?[3] ?? 99.0;
+    final inMin = lerp?[0] ?? 25.0, inMax = lerp?[1] ?? 99.0;
+    final outMin = lerp?[2] ?? 25.0, outMax = lerp?[3] ?? 99.0;
     double bestOvr = 0;
     for (int pt = 0; pt < 15; pt++) {
       double num = 0, den = 0;

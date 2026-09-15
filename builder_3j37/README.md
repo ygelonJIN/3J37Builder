@@ -24,3 +24,7 @@ NBA 2K27 MyPLAYER 建模工具 - Flutter 项目
 - Flutter 3.47.0 / Dart 3.13.0
 - Provider 状态管理
 - 暗金主题（深墨底 + 金色点缀）
+
+## 已知问题
+
+详见主 README 的「已知问题：Cap Breakers 增益体型依赖」章节。

@@ -99,7 +99,7 @@ class AppTokens {
 
   // ── Spacing ─────────────────────────────────────────────
   static const double pageEdge           = 16;
-  static const double contentTopInset    = 140;
+  static const double contentTopInset    = 150;
   static const double contentBottomInset = 236;
   static const double topScrimHeight     = 170;
   static const double bottomScrimHeight  = 160;

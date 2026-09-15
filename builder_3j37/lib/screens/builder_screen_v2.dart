@@ -1,30 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../data/services/builder_state.dart';
+import '../data/services/builder_state_v3.dart';
 import '../data/services/dataset_loader.dart';
+import '../data/services/cap_breaker_engine.dart';
 import '../theme/app_tokens.dart';
 import '../widgets/attribute_group.dart';
 import '../widgets/badge_panel.dart';
 import '../widgets/animation_panel.dart';
 import '../widgets/overall_display.dart';
-import '../widgets/attribute_floating_card.dart';
-import '../widgets/cap_breakers_panel.dart';
+import '../widgets/cap_breakers_panel_v2.dart';
+import 'dart:convert';
 
-class BuilderScreen extends StatefulWidget {
-  const BuilderScreen({super.key});
+class BuilderScreenV2 extends StatefulWidget {
+  const BuilderScreenV2({super.key});
 
   @override
-  State<BuilderScreen> createState() => _BuilderScreenState();
+  State<BuilderScreenV2> createState() => _BuilderScreenV2State();
 }
 
-class _BuilderScreenState extends State<BuilderScreen> {
+class _BuilderScreenV2State extends State<BuilderScreenV2> {
   bool _essentialLoading = true;
   bool _heavyLoading = true;
   bool _showBadges = false;
   bool _showMoves = false;
   bool _cardExpanded = true;
-  bool _minimapExpanded = false;
   final ScrollController _scrollController = ScrollController();
+  
+  // Cap breaker engine
+  final CapBreakerEngine _cbEngine = CapBreakerEngine();
 
   @override
   void initState() {
@@ -40,10 +43,30 @@ class _BuilderScreenState extends State<BuilderScreen> {
 
   Future<void> _loadData() async {
     final loader = DatasetLoader();
+    
+    // Load essential data
     await loader.loadEssential();
     if (mounted) setState(() => _essentialLoading = false);
+    
+    // Load heavy data including cap breaker gains
     await loader.loadHeavy();
+    
+    // Initialize cap breaker engine
+    await _initializeCapBreakerEngine();
+    
     if (mounted) setState(() => _heavyLoading = false);
+  }
+
+  Future<void> _initializeCapBreakerEngine() async {
+    try {
+      final data = await DefaultAssetBundle.of(context).loadString('assets/data/gains_by_rating.json');
+      final jsonData = json.decode(data) as Map<String, dynamic>;
+      final dataRows = (jsonData['data'] as List).cast<Map<String, dynamic>>();
+      _cbEngine.initialize(dataRows);
+      debugPrint('[BuilderScreenV2] Cap breaker engine initialized with ${dataRows.length} entries');
+    } catch (e) {
+      debugPrint('[BuilderScreenV2] Error initializing cap breaker engine: $e');
+    }
   }
 
   void _openBadges() {
@@ -68,7 +91,7 @@ class _BuilderScreenState extends State<BuilderScreen> {
     final isAtTop = offset <= 0;
     
     if (!isAtTop && oldExpanded != expanded) {
-      final adjustment = expanded ? 150.0 : -150.0;
+      final adjustment = expanded ? 180.0 : -180.0;
       if (_scrollController.hasClients) {
         _scrollController.jumpTo(offset + adjustment);
       }
@@ -76,23 +99,6 @@ class _BuilderScreenState extends State<BuilderScreen> {
     
     setState(() {
       _cardExpanded = expanded;
-    });
-  }
-
-  void _onMinimapExpandedChanged(bool expanded) {
-    final oldExpanded = _minimapExpanded;
-    final offset = _scrollController.offset;
-    final isAtTop = offset <= 0;
-    
-    if (!isAtTop && oldExpanded != expanded) {
-      final adjustment = expanded ? 240.0 : -240.0;
-      if (_scrollController.hasClients) {
-        _scrollController.jumpTo(offset + adjustment);
-      }
-    }
-    
-    setState(() {
-      _minimapExpanded = expanded;
     });
   }
 
@@ -115,7 +121,7 @@ class _BuilderScreenState extends State<BuilderScreen> {
     }
 
     return ChangeNotifierProvider(
-      create: (_) => BuilderState(),
+      create: (_) => BuilderStateV3(),
       child: Scaffold(
         backgroundColor: AppTokens.background,
         body: Stack(
@@ -131,11 +137,10 @@ class _BuilderScreenState extends State<BuilderScreen> {
 
   Widget _buildHomeBody() {
     final baseTopInset = AppTokens.contentTopInset;
-    final expandedExtraHeight = _cardExpanded ? 150.0 : 0.0;
-    final minimapExtraHeight = _minimapExpanded ? 240.0 : 0.0;
-    final topInset = baseTopInset + expandedExtraHeight + minimapExtraHeight;
+    final expandedExtraHeight = _cardExpanded ? 180.0 : 0.0;
+    final topInset = baseTopInset + expandedExtraHeight;
 
-    return Consumer<BuilderState>(
+    return Consumer<BuilderStateV3>(
       builder: (context, state, _) {
         return Stack(
           children: [
@@ -154,7 +159,7 @@ class _BuilderScreenState extends State<BuilderScreen> {
                   children: [
                     const AttributeGroups(),
                     const SizedBox(height: 16),
-                    const CapBreakersPanel(),
+                    const CapBreakersPanelV2(),
                   ],
                 ),
               ),
@@ -188,19 +193,22 @@ class _BuilderScreenState extends State<BuilderScreen> {
                   child: Row(
                     children: [
                       Expanded(
-                        child: Column(
-                          children: [
-                            OverallDisplay(
-                              onExpandedChanged: _onCardExpandedChanged,
-                            ),
-                            const SizedBox(height: 8),
-                            AttributeFloatingCard(
-                              lockedAttributes: state.lockedAttributes,
-                              onToggleLock: state.toggleAttributeLock,
-                              onExpandedChanged: _onMinimapExpandedChanged,
-                            ),
-                          ],
+                        child: OverallDisplay(
+                          expanded: _cardExpanded,
+                          onExpandedChanged: _onCardExpandedChanged,
                         ),
+                      ),
+                      const SizedBox(width: 8),
+                      _buildPillButton(
+                        icon: Icons.shield_outlined,
+                        label: 'Badges',
+                        onTap: _openBadges,
+                      ),
+                      const SizedBox(width: 8),
+                      _buildPillButton(
+                        icon: Icons.sports_basketball_outlined,
+                        label: 'Moves',
+                        onTap: _openMoves,
                       ),
                     ],
                   ),
@@ -216,38 +224,6 @@ class _BuilderScreenState extends State<BuilderScreen> {
                   height: AppTokens.bottomScrimHeight + MediaQuery.of(context).padding.bottom,
                   child: const DecoratedBox(
                     decoration: BoxDecoration(gradient: AppTokens.bottomScrim),
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: SafeArea(
-                top: false,
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    AppTokens.pageEdge,
-                    12,
-                    AppTokens.pageEdge,
-                    0,
-                  ),
-                  child: Row(
-                    children: [
-                      const Spacer(),
-                      _buildPillButton(
-                        icon: Icons.shield,
-                        label: 'Badges',
-                        onTap: _openBadges,
-                      ),
-                      const SizedBox(width: 8),
-                      _buildPillButton(
-                        icon: Icons.animation,
-                        label: 'Moves',
-                        onTap: _openMoves,
-                      ),
-                    ],
                   ),
                 ),
               ),

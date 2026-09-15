@@ -1,133 +1,122 @@
 import 'package:flutter/foundation.dart';
 import '../models/enums.dart';
-import '../models/attribute.dart';
 import '../models/badge_data.dart';
 import 'dataset_loader.dart';
 import 'tuning_parser.dart';
 
-class BadgeStatus {
-  final BadgeDef badge;
-  final BadgeTier? highestTier;
-  final BadgeTier? equippedTier;
-  final bool heightEligible;
-
-  const BadgeStatus({
-    required this.badge,
-    this.highestTier,
-    this.equippedTier,
-    required this.heightEligible,
-  });
-
-  bool get isEquipped => equippedTier != null;
-  bool get isUnlocked => highestTier != null && heightEligible;
-}
-
 class BuilderState extends ChangeNotifier {
   final DatasetLoader _loader = DatasetLoader();
-
   Position _position = Position.pg;
   int _heightInches = 75;
-  int _weightLb = 185;
-  int _wingspanInches = 75;
-
-  List<int> _userRatings = List.filled(21, 25);
-  List<int> _ratings = List.filled(21, 25);
-  List<bool> _userTouched = List.filled(21, false);
-
-  Map<int, BadgeTier?> _equippedBadges = {};
+  int _weightLb = 198;
+  int _wingspanInches = 78;
+  late List<int> _userRatings;  // what the user explicitly set
+  late List<int> _ratings;      // final ratings after constraints
+  final Map<int, BadgeTier?> _equippedBadges = {};
+  final Set<int> _lockedAttributes = {}; // 锁定的属性索引
 
   Position get position => _position;
   int get heightInches => _heightInches;
   int get weightLb => _weightLb;
   int get wingspanInches => _wingspanInches;
-  List<int> get ratings => _ratings;
-  List<bool> get userTouched => _userTouched;
-  Map<int, BadgeTier?> get equippedBadges => _equippedBadges;
+  List<int> get ratings => List.unmodifiable(_ratings);
+  Map<int, BadgeTier?> get equippedBadges => Map.unmodifiable(_equippedBadges);
+  Set<int> get lockedAttributes => Set.unmodifiable(_lockedAttributes);
 
-  String get heightDisplay {
-    final feet = _heightInches ~/ 12;
-    final inches = _heightInches % 12;
-    return "$feet'$inches\"";
+  BuilderState() {
+    _userRatings = List.filled(21, 25);
+    _ratings = List.filled(21, 25);
+    final lb = _loader.getLegalBody(_position);
+    if (lb != null) {
+      _heightInches = lb.defaultHeight;
+      final br = _loader.getBodyRange(_position, _heightInches);
+      if (br != null) { _weightLb = br.defaultWeight; _wingspanInches = br.defaultWingspan; }
+    }
   }
-
-  String get weightDisplay => '$_weightLb lbs';
-
-  String get wingspanDisplay {
-    final feet = _wingspanInches ~/ 12;
-    final inc = _wingspanInches % 12;
-    return "$feet'$inc\"";
-  }
-
-  int get overallRating => _loader.getOvr(_position, _heightInches, _ratings).round();
 
   void setPosition(Position pos) {
     if (_position == pos) return;
-    _position = pos;
-    
-    final legalBody = _loader.getLegalBody(pos);
-    if (legalBody != null) {
-      _heightInches = _heightInches.clamp(legalBody.minHeight, legalBody.maxHeight);
+    _position = pos; _equippedBadges.clear();
+    final lb = _loader.getLegalBody(pos);
+    if (lb != null) {
+      _heightInches = lb.defaultHeight.clamp(lb.minHeight, lb.maxHeight);
+      final br = _loader.getBodyRange(pos, _heightInches);
+      if (br != null) { _weightLb = br.defaultWeight; _wingspanInches = br.defaultWingspan; }
     }
-    
-    final bodyRange = _loader.getBodyRange(pos, _heightInches);
-    if (bodyRange != null) {
-      _weightLb = _weightLb.clamp(bodyRange.minWeight, bodyRange.maxWeight);
-      _wingspanInches = _wingspanInches.clamp(bodyRange.minWingspan, bodyRange.maxWingspan);
-    }
-    
-    _recalcAll();
+    _userRatings = List.filled(21, 25);
+    _ratings = List.filled(21, 25);
+    _lockedAttributes.clear();
     notifyListeners();
   }
 
   void setHeight(int inches) {
     if (_heightInches == inches) return;
-    _heightInches = inches;
-    
-    final bodyRange = _loader.getBodyRange(_position, _heightInches);
-    if (bodyRange != null) {
-      _weightLb = _weightLb.clamp(bodyRange.minWeight, bodyRange.maxWeight);
-      _wingspanInches = _wingspanInches.clamp(bodyRange.minWingspan, bodyRange.maxWingspan);
+    _heightInches = inches; _equippedBadges.clear();
+    final br = _loader.getBodyRange(_position, inches);
+    if (br != null) { _weightLb = _weightLb.clamp(br.minWeight, br.maxWeight); _wingspanInches = _wingspanInches.clamp(br.minWingspan, br.maxWingspan); }
+    notifyListeners();
+  }
+
+  void setWeight(int lb) { if (_weightLb == lb) return; _weightLb = lb; notifyListeners(); }
+  void setWingspan(int inches) { if (_wingspanInches == inches) return; _wingspanInches = inches; notifyListeners(); }
+
+  void toggleAttributeLock(int attrIndex) {
+    if (_lockedAttributes.contains(attrIndex)) {
+      _lockedAttributes.remove(attrIndex);
+    } else {
+      _lockedAttributes.add(attrIndex);
     }
-    
-    _recalcAll();
     notifyListeners();
   }
 
-  void setWeight(int lb) {
-    if (_weightLb == lb) return;
-    _weightLb = lb;
-    _recalcAll();
-    notifyListeners();
+  bool isAttributeLocked(int attrIndex) {
+    return _lockedAttributes.contains(attrIndex);
   }
 
-  void setWingspan(int inches) {
-    if (_wingspanInches == inches) return;
-    _wingspanInches = inches;
-    _recalcAll();
-    notifyListeners();
+  bool canAdjustAttribute(int attrIndex) {
+    return !_lockedAttributes.contains(attrIndex);
   }
 
   void setRating(int attrIndex, int value) {
+    // 检查是否锁定
+    if (_lockedAttributes.contains(attrIndex)) {
+      debugPrint('[BuilderState] Attribute $attrIndex is locked, ignoring setRating');
+      return;
+    }
+
     final caps = getAttributeCaps();
     final newValue = value.clamp(25, caps[attrIndex]);
     if (_userRatings[attrIndex] == newValue) return;
 
     final oldValue = _userRatings[attrIndex];
     _userRatings[attrIndex] = newValue;
-    _userTouched[attrIndex] = true;
+    debugPrint('[BuilderState] setRating $attrIndex: $oldValue -> $newValue');
 
+    // Bidirectional constraint propagation:
     if (newValue < oldValue) {
+      debugPrint('[BuilderState] Propagating down from $attrIndex');
       _propagateDown(attrIndex, newValue, caps);
     }
 
-    _applyConstraintsAndOvrBudget(attrIndex, oldValue, caps);
-    _autoDowngradeBadges();
+    _applyConstraintsAndBudget(caps);
+    
+    // 检查是否到达上限，自动锁定
+    if (newValue >= caps[attrIndex]) {
+      _lockedAttributes.add(attrIndex);
+    }
+    
     notifyListeners();
   }
 
+  /// When user lowers a constrained attribute, also lower the source attributes
+  /// that were forcing it up.
   void _propagateDown(int attrIndex, int newValue, List<int> caps) {
     final hIdx = _heightInches - 64;
+    // Find all sources that constrain this attribute
     for (int si = 0; si < 21; si++) {
+      // 跳过锁定的属性
+      if (_lockedAttributes.contains(si)) continue;
+      
       final srcName = TuningParser.nativeNames[si];
       final constraints = _loader.tuning.associatedConstraints[srcName]?[hIdx];
       if (constraints == null) continue;
@@ -135,70 +124,50 @@ class BuilderState extends ChangeNotifier {
         if (c.targetAttr.isEmpty) continue;
         final ti = TuningParser.nativeNames.indexOf(c.targetAttr);
         if (ti != attrIndex) continue;
+        // This source constrains our target
+        // Constraint: target >= source - maxDelta
+        // So: source <= target + maxDelta
         final maxSource = newValue + c.maxDelta;
         if (_userRatings[si] > maxSource) {
+          debugPrint("[BuilderState] propagateDown: lowering source $si ($srcName) from ${_userRatings[si]} to $maxSource");
           _userRatings[si] = maxSource.clamp(25, caps[si]);
+          // Cascade: recursively propagate down
           _propagateDown(si, _userRatings[si], caps);
         }
       }
     }
   }
 
-  void _applyConstraintsAndOvrBudget(int changedIndex, int oldValue, List<int> caps) {
+  void _applyConstraintsAndBudget(List<int> caps) {
+    // Apply constraints from user-set ratings
     final constrained = _loader.tuning.applyConstraints(_heightInches, _userRatings);
     for (int i = 0; i < 21; i++) {
       _ratings[i] = constrained[i].clamp(25, caps[i]);
     }
 
+    // Check OVR budget
     final ovr = _loader.getOvr(_position, _heightInches, _ratings);
     if (ovr >= 99.0) {
-      _userRatings[changedIndex] = oldValue;
-      final revertedConstrained = _loader.tuning.applyConstraints(_heightInches, _userRatings);
+      // Find which attribute was most recently changed and reduce it
+      // Simple approach: reduce the highest-rated attribute that's above25
       for (int i = 0; i < 21; i++) {
-        _ratings[i] = revertedConstrained[i].clamp(25, caps[i]);
-      }
-    }
-  }
-
-  /// 自动降级徽章：如果当前装备的等级不再满足要求，自动降到最高等级
-  void _autoDowngradeBadges() {
-    final badgesToDowngrade = <int, BadgeTier?>{};
-    
-    _equippedBadges.forEach((badgeId, currentTier) {
-      if (currentTier == null) return;
-      
-      // 获取当前徽章的最高等级
-      final highestTier = _loader.getHighestQualifiedTier(badgeId, _ratings);
-      final badge = _loader.badgeDefinitions.firstWhere(
-        (b) => b.badgeId == badgeId,
-        orElse: () => BadgeDef(badgeId: badgeId, name: '', discipline: Discipline.finishing, group: 0, minHeight: 0, maxHeight: 99, allowed: false),
-      );
-      final meetsHeight = badge.isHeightEligible(_heightInches);
-      
-      if (highestTier == null || !meetsHeight) {
-        // 如果没有满足的等级或身高不符合，卸装
-        badgesToDowngrade[badgeId] = null;
-      } else {
-        // 检查当前等级是否仍然满足
-        final tierOrder = [BadgeTier.bronze, BadgeTier.silver, BadgeTier.gold, BadgeTier.hallOfFame];
-        final currentIndex = tierOrder.indexOf(currentTier);
-        final highestIndex = tierOrder.indexOf(highestTier);
-        
-        if (currentIndex > highestIndex) {
-          // 当前等级高于最高等级，降级
-          badgesToDowngrade[badgeId] = highestTier;
+        if (_userRatings[i] > 25 && !_lockedAttributes.contains(i)) {
+          int lo = 25, hi = _userRatings[i], best = 25;
+          while (lo <= hi) {
+            final mid = (lo + hi) ~/ 2;
+            _userRatings[i] = mid;
+            final test = _loader.tuning.applyConstraints(_heightInches, _userRatings);
+            for (int j = 0; j < 21; j++) { _ratings[j] = test[j].clamp(25, caps[j]); }
+            final testOvr = _loader.getOvr(_position, _heightInches, _ratings);
+            if (testOvr < 99.0) { best = mid; lo = mid + 1; } else { hi = mid - 1; }
+          }
+          _userRatings[i] = best;
         }
       }
-    });
-    
-    // 应用降级
-    badgesToDowngrade.forEach((badgeId, newTier) {
-      if (newTier == null) {
-        _equippedBadges.remove(badgeId);
-      } else {
-        _equippedBadges[badgeId] = newTier;
-      }
-    });
+      // Recompute final ratings
+      final finalConstrained = _loader.tuning.applyConstraints(_heightInches, _userRatings);
+      for (int i = 0; i < 21; i++) { _ratings[i] = finalConstrained[i].clamp(25, caps[i]); }
+    }
   }
 
   List<int> getAttributeCaps() => _loader.getAttributeCaps(_position, _heightInches, _weightLb, _wingspanInches);
@@ -235,23 +204,26 @@ class BuilderState extends ChangeNotifier {
       notifyListeners();
       return true;
     }
-    
     final cost = _loader.getBadgeTokenCost(badgeId, tier, _heightInches);
     final badge = _loader.badgeDefinitions.firstWhere((b) => b.badgeId == badgeId, orElse: () => BadgeDef(badgeId: badgeId, name: '', discipline: Discipline.finishing, group: 0, minHeight: 0, maxHeight: 99, allowed: false));
     if (getTokensRemaining()[badge.discipline.index] < cost) return false;
-    _equippedBadges[badgeId] = tier; 
-    notifyListeners(); 
-    return true;
+    _equippedBadges[badgeId] = tier; notifyListeners(); return true;
   }
 
-  void _recalcAll() {
-    _userRatings = List.filled(21, 25);
-    _userTouched = List.filled(21, false);
-    _equippedBadges = {};
-    final constrained = _loader.tuning.applyConstraints(_heightInches, _userRatings);
-    final caps = getAttributeCaps();
-    for (int i = 0; i < 21; i++) {
-      _ratings[i] = constrained[i].clamp(25, caps[i]);
-    }
-  }
+  void unequipBadge(int badgeId) { _equippedBadges.remove(badgeId); notifyListeners(); }
+
+  int get overallRating => _loader.getOvr(_position, _heightInches, _ratings).round().clamp(25, 99);
+  String get heightDisplay { final f = _heightInches ~/ 12; final i = _heightInches % 12; final cm = (_heightInches * 2.54).round(); return "$f'$i\" / ${cm}cm"; }
+  String get weightDisplay { final kg = (_weightLb * 0.453592).round(); return '$_weightLb lbs / ${kg}kg'; }
+  String get wingspanDisplay { final f = _wingspanInches ~/ 12; final i = _wingspanInches % 12; final cm = (_wingspanInches * 2.54).round(); return "$f'$i\" / ${cm}cm"; }
+}
+
+class BadgeStatus {
+  final BadgeDef badge;
+  final BadgeTier? highestTier;
+  final BadgeTier? equippedTier;
+  final bool heightEligible;
+  const BadgeStatus({required this.badge, this.highestTier, this.equippedTier, required this.heightEligible});
+  bool get isUnlocked => highestTier != null && heightEligible;
+  bool get isEquipped => equippedTier != null;
 }

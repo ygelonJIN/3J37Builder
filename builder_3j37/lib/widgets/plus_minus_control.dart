@@ -7,7 +7,7 @@ class PlusMinusControl extends StatefulWidget {
   final int value;
   final int min;
   final int max;
-  final ValueChanged<int> onChanged;
+  final ValueChanged<int>? onChanged; // 改为可选，null表示禁用
   final Color? activeColor;
 
   const PlusMinusControl({
@@ -15,7 +15,7 @@ class PlusMinusControl extends StatefulWidget {
     required this.value,
     required this.min,
     required this.max,
-    required this.onChanged,
+    this.onChanged,
     this.activeColor,
   });
 
@@ -29,6 +29,8 @@ class _PlusMinusControlState extends State<PlusMinusControl> {
   Timer? _speedTimer2;
   bool _isPressing = false;
 
+  bool get _enabled => widget.onChanged != null;
+
   @override
   void dispose() {
     _timer?.cancel();
@@ -38,6 +40,7 @@ class _PlusMinusControlState extends State<PlusMinusControl> {
   }
 
   void _startTimer(bool isIncrement) {
+    if (!_enabled) return;
     _isPressing = true;
     
     // 300ms后开始持续触发
@@ -86,19 +89,20 @@ class _PlusMinusControlState extends State<PlusMinusControl> {
   }
 
   void _updateValue(bool isIncrement) {
+    if (!_enabled) return;
     final newValue = isIncrement 
         ? (widget.value + 1).clamp(widget.min, widget.max)
         : (widget.value - 1).clamp(widget.min, widget.max);
     if (newValue != widget.value) {
-      widget.onChanged(newValue);
+      widget.onChanged!(newValue);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final color = widget.activeColor ?? AppTokens.primary;
-    final canDecrease = widget.value > widget.min;
-    final canIncrease = widget.value < widget.max;
+    final canDecrease = _enabled && widget.value > widget.min;
+    final canIncrease = _enabled && widget.value < widget.max;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -110,12 +114,12 @@ class _PlusMinusControlState extends State<PlusMinusControl> {
           onTapUp: (_) => _stopTimer(),
           onTapCancel: () => _stopTimer(),
           child: Container(
-            width: 48,
+            width: 40,
             height: 28,
             decoration: BoxDecoration(
-              color: canDecrease ? AppTokens.surface : AppTokens.surface.withValues(alpha: 0.5),
+              color: canDecrease ? AppTokens.surface : AppTokens.surface.withValues(alpha: 0.3),
               border: Border.all(
-                color: canDecrease ? color.withValues(alpha: 0.5) : AppTokens.keyOff.withValues(alpha: 0.3),
+                color: canDecrease ? color.withValues(alpha: 0.5) : AppTokens.keyOff.withValues(alpha: 0.2),
                 width: 1,
               ),
               borderRadius: BorderRadius.circular(AppTokens.radius),
@@ -123,7 +127,7 @@ class _PlusMinusControlState extends State<PlusMinusControl> {
             child: Icon(
               Icons.remove,
               size: 16,
-              color: canDecrease ? color : AppTokens.keyOff,
+              color: canDecrease ? color : AppTokens.keyOff.withValues(alpha: 0.5),
             ),
           ),
         ),
@@ -135,12 +139,12 @@ class _PlusMinusControlState extends State<PlusMinusControl> {
           onTapUp: (_) => _stopTimer(),
           onTapCancel: () => _stopTimer(),
           child: Container(
-            width: 48,
+            width: 40,
             height: 28,
             decoration: BoxDecoration(
-              color: canIncrease ? AppTokens.surface : AppTokens.surface.withValues(alpha: 0.5),
+              color: canIncrease ? AppTokens.surface : AppTokens.surface.withValues(alpha: 0.3),
               border: Border.all(
-                color: canIncrease ? color.withValues(alpha: 0.5) : AppTokens.keyOff.withValues(alpha: 0.3),
+                color: canIncrease ? color.withValues(alpha: 0.5) : AppTokens.keyOff.withValues(alpha: 0.2),
                 width: 1,
               ),
               borderRadius: BorderRadius.circular(AppTokens.radius),
@@ -148,7 +152,7 @@ class _PlusMinusControlState extends State<PlusMinusControl> {
             child: Icon(
               Icons.add,
               size: 16,
-              color: canIncrease ? color : AppTokens.keyOff,
+              color: canIncrease ? color : AppTokens.keyOff.withValues(alpha: 0.5),
             ),
           ),
         ),

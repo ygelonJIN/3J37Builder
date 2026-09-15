@@ -27,7 +27,13 @@ class BodyConfigurator extends StatelessWidget {
   String _fmtHeight(int inches) {
     final feet = inches ~/ 12;
     final inc = inches % 12;
-    return "$feet'$inc\"";
+    final cm = (inches * 2.54).round();
+    return "$feet'$inc\" / ${cm}cm";
+  }
+
+  String _fmtWeight(int lb) {
+    final kg = (lb * 0.453592).round();
+    return '$lb lbs / ${kg}kg';
   }
 
   @override
@@ -63,7 +69,7 @@ class BodyConfigurator extends StatelessWidget {
           value: weightLb,
           min: minW,
           max: maxW,
-          displayValue: '$weightLb lbs',
+          displayValue: _fmtWeight(weightLb),
           onChanged: onWeightChanged,
         ),
         const SizedBox(height: 2),

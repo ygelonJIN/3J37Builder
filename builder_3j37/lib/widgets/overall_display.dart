@@ -17,7 +17,7 @@ class OverallDisplay extends StatefulWidget {
 }
 
 class _OverallDisplayState extends State<OverallDisplay> {
-  bool _expanded = true; // 默认展开
+  bool _expanded = true;
 
   void _toggleExpanded() {
     setState(() {
@@ -26,13 +26,28 @@ class _OverallDisplayState extends State<OverallDisplay> {
     });
   }
 
+  String _fmtHeight(int inches) {
+    final feet = inches ~/ 12;
+    final inc = inches % 12;
+    final cm = (inches * 2.54).round();
+    return "$feet'$inc\"/${cm}cm";
+  }
+
+  String _fmtWeight(int lb) {
+    final kg = (lb * 0.453592).round();
+    return "$lb lbs/${kg}kg";
+  }
+
+  String _fmtWingspan(int inches) {
+    final feet = inches ~/ 12;
+    final inc = inches % 12;
+    final cm = (inches * 2.54).round();
+    return "$feet'$inc\"/${cm}cm";
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = context.watch<BuilderState>();
-    final loader = DatasetLoader();
-    final ovr = state.overallRating;
-    final pos = state.position;
-    final preciseOvr = loader.getOvr(pos, state.heightInches, state.ratings);
 
     return GestureDetector(
       onTap: _toggleExpanded,
@@ -49,41 +64,33 @@ class _OverallDisplayState extends State<OverallDisplay> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            // 最小化状态：总评和展开/收起按钮
             Row(
               children: [
-                Text(
-                  '$ovr',
-                  style: AppTokens.brandMark.copyWith(fontSize: 22, letterSpacing: 0),
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  '(${preciseOvr.toStringAsFixed(1)})',
-                  style: AppTokens.caption.copyWith(fontSize: 11, color: AppTokens.keyOff),
-                ),
-                const Spacer(),
-                Text(
-                  _expanded ? 'Collapse' : 'Expand',
-                  style: AppTokens.caption.copyWith(
-                    fontSize: 11,
-                    color: AppTokens.textSecondary,
+                Flexible(
+                  child: Text(
+                    '${state.position.label}  ${_fmtHeight(state.heightInches)}  ${_fmtWeight(state.weightLb)}  ${_fmtWingspan(state.wingspanInches)}',
+                    style: TextStyle(
+                      fontFamily: AppTokens.fontFamily,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w300,
+                      color: AppTokens.textSecondary,
+                      letterSpacing: 0.2,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const SizedBox(width: 4),
+                const SizedBox(width: 8),
                 Icon(
                   _expanded ? Icons.expand_less : Icons.expand_more,
-                  size: 18,
+                  size: 16,
                   color: AppTokens.textSecondary,
                 ),
               ],
             ),
-            // 展开状态：Position 和 Body
             if (_expanded) ...[
               const SizedBox(height: 12),
-              // Position 选择器
               PositionSelector(selected: state.position, onSelected: state.setPosition),
               const SizedBox(height: 12),
-              // Body 配置器
               BodyConfigurator(
                 position: state.position,
                 heightInches: state.heightInches,
