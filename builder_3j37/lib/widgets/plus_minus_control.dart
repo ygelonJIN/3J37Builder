@@ -132,7 +132,7 @@ class _PlusMinusControlState extends State<PlusMinusControl> {
             ),
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 4),
         // 加号按钮
         GestureDetector(
           onTap: canIncrease ? () => _updateValue(true) : null,

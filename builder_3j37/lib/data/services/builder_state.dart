@@ -101,7 +101,7 @@ class BuilderState extends ChangeNotifier {
       _propagateDown(attrIndex, newValue, caps);
     }
 
-    _applyConstraintsAndBudget(caps);
+    _applyConstraintsAndBudget(caps, changedAttrIndex: attrIndex);
     
     
     notifyListeners();
@@ -139,85 +139,97 @@ class BuilderState extends ChangeNotifier {
     }
   }
 
-  void _applyConstraintsAndBudget(List<int> caps) {
-    // 使用网站逻辑的约束传播
+  void _applyConstraintsAndBudget(List<int> caps, {int changedAttrIndex = -1}) {
+    // 直接从 _userRatings 同步到 _ratings
+    for (int i = 0; i < 21; i++) {
+      _ratings[i] = _userRatings[i].clamp(25, caps[i]);
+    }
+
     final body = {'height': _heightInches, 'weight': _weightLb, 'wingspan': _wingspanInches, 'position': _position.name.toUpperCase()};
     final capsMap = <String, int>{};
     for (int i = 0; i < 21; i++) {
       capsMap[website_logic.attrIds[i]] = caps[i];
     }
-    
-    // 对每个属性应用约束
-    final values = <String, int>{};
-    for (int i = 0; i < 21; i++) {
-      values[website_logic.attrIds[i]] = _userRatings[i];
-    }
-    
-    // 应用所有约束
-    Map<String, int> constrained = Map.from(values);
-    for (int i = 0; i < 21; i++) {
+
+    // 只对被修改的属性应用一次约束传播（与网站一致）
+    if (changedAttrIndex >= 0) {
+      final values = <String, int>{};
+      for (int i = 0; i < 21; i++) {
+        values[website_logic.attrIds[i]] = _userRatings[i];
+      }
       final result = website_logic.applyConstraints(
-        values: constrained,
-        changedAttrId: website_logic.attrIds[i],
+        values: values,
+        changedAttrId: website_logic.attrIds[changedAttrIndex],
         body: body,
         loader: _loader,
         caps: capsMap,
       );
-      constrained = Map.from(result['values'] as Map<String, int>);
-    }
-    
-    for (int i = 0; i < 21; i++) {
-      _ratings[i] = (constrained[website_logic.attrIds[i]] ?? 25).clamp(25, caps[i]);
+      final constrained = result['values'] as Map<String, int>;
+      for (int i = 0; i < 21; i++) {
+        final cv = (constrained[website_logic.attrIds[i]] ?? 25).clamp(25, caps[i]);
+        if (cv > _ratings[i]) _ratings[i] = cv;
+      }
     }
 
-    // Check OVR budget
+    // Check OVR budget (与网站 ge 函数逻辑一致)
     final ovr = website_logic.calculateOvr(_ratings.asMap().map((k, v) => MapEntry(website_logic.attrIds[k], v)), body, _loader);
     if (ovr >= 99.0) {
+      // 对每个属性单独进行二分搜索（与网站一致）
       for (int i = 0; i < 21; i++) {
         if (_userRatings[i] > 25 && !_lockedAttributes.contains(i)) {
-          int lo = 25, hi = _userRatings[i], best = 25;
+          final currentVal = _userRatings[i];
+          int lo = 25, hi = currentVal, best = 25;
+          
           while (lo <= hi) {
             final mid = (lo + hi) ~/ 2;
-            _userRatings[i] = mid;
-            final testValues = <String, int>{};
-            for (int j = 0; j < 21; j++) {
-              testValues[website_logic.attrIds[j]] = _userRatings[j];
+            // 创建测试值映射，只修改当前属性
+            final testValues = Map<String, int>.from(
+              _userRatings.asMap().map((k, v) => MapEntry(website_logic.attrIds[k], v))
+            );
+            testValues[website_logic.attrIds[i]] = mid;
+            
+            // 只对当前属性调用 applyConstraints（与网站 ne 函数一致）
+            final result = website_logic.applyConstraints(
+              values: testValues,
+              changedAttrId: website_logic.attrIds[i],
+              body: body,
+              loader: _loader,
+              caps: capsMap,
+            );
+            final constrained = result['values'] as Map<String, int>;
+            
+            // 计算约束后的 OVR
+            final testOvr = website_logic.calculateOvr(constrained, body, _loader);
+            if (testOvr < 99.0) {
+              best = mid;
+              lo = mid + 1;
+            } else {
+              hi = mid - 1;
             }
-            Map<String, int> testConstrained = Map.from(testValues);
-            for (int j = 0; j < 21; j++) {
-              final result = website_logic.applyConstraints(
-                values: testConstrained,
-                changedAttrId: website_logic.attrIds[j],
-                body: body,
-                loader: _loader,
-                caps: capsMap,
-              );
-              testConstrained = Map.from(result['values'] as Map<String, int>);
-            }
-            for (int j = 0; j < 21; j++) { _ratings[j] = (testConstrained[website_logic.attrIds[j]] ?? 25).clamp(25, caps[j]); }
-            final testOvr = website_logic.calculateOvr(_ratings.asMap().map((k, v) => MapEntry(website_logic.attrIds[k], v)), body, _loader);
-            if (testOvr < 99.0) { best = mid; lo = mid + 1; } else { hi = mid - 1; }
           }
           _userRatings[i] = best;
         }
       }
-      // Recompute final ratings
-      final finalValues = <String, int>{};
-      for (int i = 0; i < 21; i++) {
-        finalValues[website_logic.attrIds[i]] = _userRatings[i];
-      }
-      Map<String, int> finalConstrained = Map.from(finalValues);
-      for (int i = 0; i < 21; i++) {
+      
+      // 重新计算最终 ratings（只对被修改的属性应用约束）
+      if (changedAttrIndex >= 0) {
+        final finalValues = <String, int>{};
+        for (int i = 0; i < 21; i++) {
+          finalValues[website_logic.attrIds[i]] = _userRatings[i];
+        }
         final result = website_logic.applyConstraints(
-          values: finalConstrained,
-          changedAttrId: website_logic.attrIds[i],
+          values: finalValues,
+          changedAttrId: website_logic.attrIds[changedAttrIndex],
           body: body,
           loader: _loader,
           caps: capsMap,
         );
-        finalConstrained = Map.from(result['values'] as Map<String, int>);
+        final constrained = result['values'] as Map<String, int>;
+        for (int i = 0; i < 21; i++) {
+          final cv = (constrained[website_logic.attrIds[i]] ?? 25).clamp(25, caps[i]);
+          if (cv > _ratings[i]) _ratings[i] = cv;
+        }
       }
-      for (int i = 0; i < 21; i++) { _ratings[i] = (finalConstrained[website_logic.attrIds[i]] ?? 25).clamp(25, caps[i]); }
     }
   }
 
