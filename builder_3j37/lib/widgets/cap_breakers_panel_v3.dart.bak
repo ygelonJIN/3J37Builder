@@ -1,4 +1,3 @@
-import 'center_dialog.dart';
 import 'package:flutter/material.dart';
 import '../data/services/builder_state_v4.dart';
 import '../theme/app_tokens.dart';
@@ -269,45 +268,27 @@ class CapBreakersPanelV3 extends StatelessWidget {
   }
 
   void _showClearAllDialog(BuildContext context, BuilderStateV4 state) {
-    CenterDialog.show(
+    showDialog(
       context: context,
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Clear All Cap Breakers', style: AppTokens.cardTitleStyle),
-            const SizedBox(height: 16),
-            Text('Remove all ${state.totalCapBreakersApplied} cap breakers?', style: AppTokens.body),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel'),
-                ),
-                const SizedBox(width: 8),
-                TextButton(
-                  onPressed: () {
-                    state.clearAllCapBreakers();
-                    Navigator.pop(context);
-                  },
-                  child: const Text('Clear All', style: TextStyle(color: Colors.red)),
-                ),
-              ],
-            ),
-          ],
-        ),
+      builder: (ctx) => AlertDialog(
+        title: const Text('Clear All Cap Breakers'),
+        content: Text('Remove all ${state.totalCapBreakersApplied} cap breakers?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              state.clearAllCapBreakers();
+              Navigator.pop(ctx);
+            },
+            child: const Text('Clear All', style: TextStyle(color: Colors.red)),
+          ),
+        ],
       ),
-      onClose: () {
-        FocusScope.of(context).unfocus();
-        Navigator.of(context).pop();
-      },
     );
   }
-
 
   String _attrName(int index) {
     const names = [

@@ -397,113 +397,92 @@ class _AttributeControlState extends State<_AttributeControl> {
     final tierColours = AppTokens.badgeTierColours;
     final remaining = state.getTokensRemaining();
 
-    CenterDialog.show(
+    showDialog(
       context: context,
-      child: StatefulBuilder(
-        builder: (context, setDialogState) {
-          final currentEquipped = state.equippedBadges[badge.badgeId];
-          return Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(children: [
-                  Icon(currentEquipped != null ? Icons.check_circle : Icons.lock_open, size: 18, color: currentEquipped != null ? AppTokens.primary : AppTokens.keyOff),
-                  const SizedBox(width: 6),
-                  Expanded(child: Text(badge.displayName, style: AppTokens.cardTitleStyle)),
-                ]),
-                const SizedBox(height: 8),
-                _buildHeightRequirement(context, badge, state),
-                const SizedBox(height: 16),
-                Text('Tap tier to equip/unequip', style: AppTokens.caption),
-                const SizedBox(height: 8),
-                ...[BadgeTier.bronze, BadgeTier.silver, BadgeTier.gold, BadgeTier.hallOfFame].map((tier) {
-                  final reqs = loader.tierRequirements.where((r) => r.badgeId == badge.badgeId && r.tier == tier);
-                  final tierColour = Color(int.parse(tierColours[tier.key]!.value.toRadixString(16).padLeft(8, '0'), radix: 16));
-                  final tokenCost = loader.getBadgeTokenCost(badge.badgeId, tier, state.heightInches);
-                  final canAfford = tokenCost <= remaining[badge.discipline.index];
-                  final meetsReqs = _meetsRequirements(reqs, state);
-                  final meetsHeight = status.heightEligible;
-                  final isCurrentTier = currentEquipped == tier;
-                  final canEquip = meetsReqs && canAfford && meetsHeight;
+      barrierColor: Colors.black54,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final currentEquipped = state.equippedBadges[badge.badgeId];
+            return Dialog(
+              backgroundColor: AppTokens.surface,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTokens.radius), side: BorderSide(color: AppTokens.primary.withValues(alpha: 0.4))),
+              child: Container(
+                constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.85, maxHeight: MediaQuery.of(context).size.height * 0.7),
+                child: ListView(
+                  padding: const EdgeInsets.all(20),
+                  children: [
+                    Row(children: [
+                      Icon(currentEquipped != null ? Icons.check_circle : Icons.lock_open, size: 18, color: currentEquipped != null ? AppTokens.primary : AppTokens.keyOff),
+                      const SizedBox(width: 6),
+                      Expanded(child: Text(badge.displayName, style: AppTokens.cardTitleStyle)),
+                    ]),
+                    const SizedBox(height: 8),
+                    _buildHeightRequirement(context, badge, state),
+                    const SizedBox(height: 16),
+                    Text('Tap tier to equip/unequip', style: AppTokens.caption),
+                    const SizedBox(height: 8),
+                    ...[BadgeTier.bronze, BadgeTier.silver, BadgeTier.gold, BadgeTier.hallOfFame].map((tier) {
+                      final reqs = loader.tierRequirements.where((r) => r.badgeId == badge.badgeId && r.tier == tier);
+                      final tierColour = Color(int.parse(tierColours[tier.key]!.value.toRadixString(16).padLeft(8, '0'), radix: 16));
+                      final tokenCost = loader.getBadgeTokenCost(badge.badgeId, tier, state.heightInches);
+                      final canAfford = tokenCost <= remaining[badge.discipline.index];
+                      final meetsReqs = _meetsRequirements(reqs, state);
+                      final meetsHeight = status.heightEligible;
+                      final isCurrentTier = currentEquipped == tier;
+                      final canEquip = meetsReqs && canAfford && meetsHeight;
 
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: isCurrentTier ? AppTokens.surfaceAlt : AppTokens.surface,
-                      border: Border.all(color: isCurrentTier ? tierColour : (canEquip ? AppTokens.cardBorder : AppTokens.keyOff.withValues(alpha: 0.3)), width: isCurrentTier ? 3 : 1),
-                      borderRadius: BorderRadius.circular(AppTokens.radius),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(children: [
-                          Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: tierColour.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(2)), child: Text(tier.key.toUpperCase(), style: AppTokens.caption.copyWith(color: tierColour, fontWeight: FontWeight.w600))),
-                          const Spacer(),
-                          if (tokenCost > 0) Text('$tokenCost tokens', style: AppTokens.caption.copyWith(color: canAfford ? AppTokens.primary : Colors.red)),
-                        ]),
-                        const SizedBox(height: 4),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: canEquip ? () {
-                              if (isCurrentTier) {
-                                state.equipBadge(badge.badgeId, null);
-                              } else {
-                                state.equipBadge(badge.badgeId, tier);
-                              }
-                              setDialogState(() {});
-                            } : null,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: isCurrentTier ? Colors.red : (canEquip ? AppTokens.primary : AppTokens.keyOff),
-                              foregroundColor: Colors.black,
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                              minimumSize: Size.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(AppTokens.radius),
-                              ),
-                            ),
-                            child: Text(
-                              isCurrentTier ? 'Unequip' : 'Equip',
-                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
-                            ),
+                      return GestureDetector(
+                        onTap: canEquip ? () {
+                          if (isCurrentTier) { state.equipBadge(badge.badgeId, null); } else { state.equipBadge(badge.badgeId, tier); }
+                          setDialogState(() {});
+                        } : null,
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: isCurrentTier ? AppTokens.surfaceAlt : AppTokens.surface,
+                            border: Border.all(color: isCurrentTier ? tierColour : (canEquip ? AppTokens.cardBorder : AppTokens.keyOff.withValues(alpha: 0.3)), width: isCurrentTier ? 3 : 1),
+                            borderRadius: BorderRadius.circular(AppTokens.radius),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(children: [
+                                Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: tierColour.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(2)), child: Text(tier.key.toUpperCase(), style: AppTokens.caption.copyWith(color: tierColour, fontWeight: FontWeight.w600))),
+                                const Spacer(),
+                                if (tokenCost > 0) Text('$tokenCost tokens', style: AppTokens.caption.copyWith(color: canAfford ? AppTokens.primary : Colors.red)),
+                              ]),
+                              const SizedBox(height: 8),
+                              if (!meetsHeight) Padding(padding: const EdgeInsets.only(bottom: 4), child: Row(children: [Icon(Icons.close, size: 12, color: Colors.red), const SizedBox(width: 4), Text('Height not eligible', style: AppTokens.caption.copyWith(fontSize: 11, color: Colors.red))])),
+                              ...reqs.expand((req) => req.requirements.map((r) {
+                                final attrName = loader.attributes[r.attributeIndex].displayName;
+                                final currentVal = state.ratings[r.attributeIndex];
+                                final meets = currentVal >= r.minimum;
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 2),
+                                  child: Row(children: [
+                                    Icon(meets ? Icons.check : Icons.close, size: 12, color: meets ? Colors.green : Colors.red),
+                                    const SizedBox(width: 4),
+                                    Expanded(child: Text('$attrName: ${r.minimum}', style: AppTokens.caption.copyWith(fontSize: 11))),
+                                    Text('($currentVal)', style: AppTokens.caption.copyWith(fontSize: 10, color: meets ? Colors.green : AppTokens.keyOff)),
+                                  ]),
+                                );
+                              })),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        if (!meetsHeight) Padding(padding: const EdgeInsets.only(bottom: 4), child: Row(children: [Icon(Icons.close, size: 12, color: Colors.red), const SizedBox(width: 4), Text('Height not eligible', style: AppTokens.caption.copyWith(fontSize: 11, color: Colors.red))])),
-                        ...reqs.expand((req) => req.requirements.map((r) {
-                          final attrName = loader.attributes[r.attributeIndex].displayName;
-                          final currentVal = state.ratings[r.attributeIndex];
-                          final meets = currentVal >= r.minimum;
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 2),
-                            child: Row(children: [
-                              Icon(meets ? Icons.check : Icons.close, size: 12, color: meets ? Colors.green : Colors.red),
-                              const SizedBox(width: 4),
-                              Expanded(child: Text('$attrName: ${r.minimum}', style: AppTokens.caption.copyWith(fontSize: 11))),
-                              Text('($currentVal)', style: AppTokens.caption.copyWith(fontSize: 10, color: meets ? Colors.green : AppTokens.keyOff)),
-                            ]),
-                          );
-                        })),
-                      ],
-                    ),
-                  );
-                }),
-              ],
-            ),
-          );
-        },
-      ),
-      onClose: () {
-        FocusScope.of(context).unfocus();
-        Navigator.of(context).pop();
+                      );
+                    }),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
       },
     );
   }
-
 
   Widget _buildHeightRequirement(BuildContext context, BadgeDef badge, BuilderState state) {
     final minHeight = badge.minHeight;
