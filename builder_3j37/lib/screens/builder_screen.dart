@@ -9,7 +9,6 @@ import '../widgets/badge_panel.dart';
 import '../widgets/animation_panel.dart';
 import '../widgets/overall_display.dart';
 import '../widgets/attribute_floating_card.dart';
-import '../widgets/cap_breakers_panel.dart';
 
 class BuilderScreen extends StatefulWidget {
   const BuilderScreen({super.key});
@@ -171,8 +170,6 @@ class _BuilderScreenState extends State<BuilderScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         AttributeGroups(),
-                        const SizedBox(height: 16),
-                        if (!_heavyLoading) const CapBreakersPanel(),
                       ],
                     ),
                   ),

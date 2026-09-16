@@ -80,6 +80,54 @@ class BuilderState extends ChangeNotifier {
     return !_lockedAttributes.contains(attrIndex);
   }
 
+  /// 验证属性修改是否会违反锁定属性的约束
+  /// 返回错误信息字符串，如果合法则返回null
+  String? validateRatingChange(int attrIndex, int newValue) {
+    if (_lockedAttributes.isEmpty) return null;
+    
+    final caps = getAttributeCaps();
+    final clampedValue = newValue.clamp(25, caps[attrIndex]);
+    
+    // 构建当前值映射
+    final values = <String, int>{};
+    for (int i = 0; i < 21; i++) {
+      values[website_logic.attrIds[i]] = _userRatings[i];
+    }
+    values[website_logic.attrIds[attrIndex]] = clampedValue;
+    
+    final body = {'height': _heightInches, 'weight': _weightLb, 'wingspan': _wingspanInches, 'position': _position.name.toUpperCase()};
+    final capsMap = <String, int>{};
+    for (int i = 0; i < 21; i++) {
+      capsMap[website_logic.attrIds[i]] = caps[i];
+    }
+    
+    // 应用约束
+    final result = website_logic.applyConstraints(
+      values: values,
+      changedAttrId: website_logic.attrIds[attrIndex],
+      body: body,
+      loader: _loader,
+      caps: capsMap,
+    );
+    
+    final constrained = result['values'] as Map<String, int>;
+    
+    // 检查是否有锁定属性被违反
+    for (int i = 0; i < 21; i++) {
+      if (_lockedAttributes.contains(i)) {
+        final lockedValue = _userRatings[i];
+        final constrainedValue = (constrained[website_logic.attrIds[i]] ?? 25).clamp(25, caps[i]);
+        
+        if (constrainedValue != lockedValue) {
+          final attrName = _loader.attributes[i].displayName;
+          return '$attrName已锁定';
+        }
+      }
+    }
+    
+    return null;
+  }
+
   void setRating(int attrIndex, int value) {
     // 检查是否锁定
     if (_lockedAttributes.contains(attrIndex)) {

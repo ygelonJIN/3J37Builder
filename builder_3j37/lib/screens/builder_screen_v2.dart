@@ -8,7 +8,6 @@ import '../widgets/attribute_group.dart';
 import '../widgets/badge_panel.dart';
 import '../widgets/animation_panel.dart';
 import '../widgets/overall_display.dart';
-import '../widgets/cap_breakers_panel_v2.dart';
 import 'dart:convert';
 
 class BuilderScreenV2 extends StatefulWidget {
@@ -156,8 +155,6 @@ class _BuilderScreenV2State extends State<BuilderScreenV2> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const AttributeGroups(),
-                    const SizedBox(height: 16),
-                    const CapBreakersPanelV2(),
                   ],
                 ),
               ),
