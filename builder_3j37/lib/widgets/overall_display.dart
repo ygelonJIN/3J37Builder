@@ -50,22 +50,23 @@ class _OverallDisplayState extends State<OverallDisplay> {
   Widget build(BuildContext context) {
     final state = context.watch<BuilderState>();
 
-    return GestureDetector(
-      onTap: _toggleExpanded,
-      child: AnimatedContainer(
-        duration: AppTokens.animShort,
-        curve: AppTokens.curveOut,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: AppTokens.surfaceAlt,
-          border: Border.all(color: AppTokens.primary.withValues(alpha: 0.4), width: 1),
-          borderRadius: BorderRadius.circular(AppTokens.radius),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
+    return AnimatedContainer(
+      duration: AppTokens.animShort,
+      curve: AppTokens.curveOut,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppTokens.surfaceAlt,
+        border: Border.all(color: AppTokens.primary.withValues(alpha: 0.4), width: 1),
+        borderRadius: BorderRadius.circular(AppTokens.radius),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          GestureDetector(
+            onTap: _toggleExpanded,
+            behavior: HitTestBehavior.opaque,
+            child: Row(
               children: [
                 Flexible(
                   child: Text(
@@ -88,22 +89,22 @@ class _OverallDisplayState extends State<OverallDisplay> {
                 ),
               ],
             ),
-            if (_expanded) ...[
-              const SizedBox(height: 12),
-              PositionSelector(selected: state.position, onSelected: state.setPosition),
-              const SizedBox(height: 12),
-              BodyConfigurator(
-                position: state.position,
-                heightInches: state.heightInches,
-                weightLb: state.weightLb,
-                wingspanInches: state.wingspanInches,
-                onHeightChanged: state.setHeight,
-                onWeightChanged: state.setWeight,
-                onWingspanChanged: state.setWingspan,
-              ),
-            ],
+          ),
+          if (_expanded) ...[
+            const SizedBox(height: 12),
+            PositionSelector(selected: state.position, onSelected: state.setPosition),
+            const SizedBox(height: 12),
+            BodyConfigurator(
+              position: state.position,
+              heightInches: state.heightInches,
+              weightLb: state.weightLb,
+              wingspanInches: state.wingspanInches,
+              onHeightChanged: state.setHeight,
+              onWeightChanged: state.setWeight,
+              onWingspanChanged: state.setWingspan,
+            ),
           ],
-        ),
+        ],
       ),
     );
   }

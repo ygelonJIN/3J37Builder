@@ -103,10 +103,6 @@ class BuilderState extends ChangeNotifier {
 
     _applyConstraintsAndBudget(caps);
     
-    // 检查是否到达上限，自动锁定
-    if (newValue >= caps[attrIndex]) {
-      _lockedAttributes.add(attrIndex);
-    }
     
     notifyListeners();
   }

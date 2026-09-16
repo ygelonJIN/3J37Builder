@@ -199,7 +199,7 @@ class _AttributeControlState extends State<_AttributeControl> {
   // ── Normal display: X input + /cap ────────────────────
   Widget _buildNormalDisplay(Color xColor, Color yColor) {
     return SizedBox(
-      width: 78,
+      width: 70,
       height: 28,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
@@ -213,10 +213,11 @@ class _AttributeControlState extends State<_AttributeControl> {
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               textAlign: TextAlign.center,
+              textAlignVertical: TextAlignVertical.center,
               cursorWidth: 0,
               style: AppTokens.body.copyWith(color: xColor, fontSize: 12, fontWeight: FontWeight.w600),
               decoration: InputDecoration(
-                contentPadding: EdgeInsets.symmetric(horizontal: 4),
+                contentPadding: EdgeInsets.symmetric(horizontal: 0, vertical: 2),
                 isDense: true,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(AppTokens.radius),
@@ -252,7 +253,9 @@ class _AttributeControlState extends State<_AttributeControl> {
 
   // ── Lock icon ──────────────────────────────────────────
   Widget _buildLockIcon() {
-    return GestureDetector(
+    return Container(
+      margin: const EdgeInsets.only(right: 16),
+      child: GestureDetector(
       onTap: widget.onToggleLock,
       child: Container(
         width: 20, height: 28,
@@ -263,6 +266,7 @@ class _AttributeControlState extends State<_AttributeControl> {
         ),
         child: Icon(widget.isLocked ? Icons.lock : Icons.lock_open, size: 14, color: widget.isLocked ? AppTokens.primary : AppTokens.keyOff.withValues(alpha: 0.5)),
       ),
+    ),
     );
   }
 

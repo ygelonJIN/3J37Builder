@@ -41,22 +41,23 @@ class _AttributeFloatingCardState extends State<AttributeFloatingCard> {
     final attributes = loader.attributes;
     final caps = state.getAttributeCaps();
 
-    return GestureDetector(
-      onTap: _toggleExpanded,
-      child: AnimatedContainer(
-        duration: AppTokens.animShort,
-        curve: AppTokens.curveOut,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-        decoration: BoxDecoration(
-          color: AppTokens.surfaceAlt,
-          border: Border.all(color: AppTokens.primary.withValues(alpha: 0.4), width: 1),
-          borderRadius: BorderRadius.circular(AppTokens.radius),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
+    return AnimatedContainer(
+      duration: AppTokens.animShort,
+      curve: AppTokens.curveOut,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+      decoration: BoxDecoration(
+        color: AppTokens.surfaceAlt,
+        border: Border.all(color: AppTokens.primary.withValues(alpha: 0.4), width: 1),
+        borderRadius: BorderRadius.circular(AppTokens.radius),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          GestureDetector(
+            onTap: _toggleExpanded,
+            behavior: HitTestBehavior.opaque,
+            child: Row(
               children: [
                 Text(
                   '$ovr',
@@ -90,12 +91,12 @@ class _AttributeFloatingCardState extends State<AttributeFloatingCard> {
                 ),
               ],
             ),
-            if (_expanded) ...[
-              const SizedBox(height: 0),
-              _buildMinimap(attributes, state, caps),
-            ],
+          ),
+          if (_expanded) ...[
+            const SizedBox(height: 0),
+            _buildMinimap(attributes, state, caps),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -125,7 +126,6 @@ class _AttributeFloatingCardState extends State<AttributeFloatingCard> {
     final atCap = value >= cap;
     final isLocked = widget.lockedAttributes.contains(attr.index);
     final colour = AppTokens.disciplineColours[attr.discipline.name] ?? AppTokens.textSecondary;
-    // X uses discipline color (grayed when locked/maxed), Y always keyOff, same font size
     final xColor = (atCap || isLocked) ? AppTokens.keyOff : colour;
     const yColor = AppTokens.keyOff;
     final nameColor = (atCap || isLocked) ? AppTokens.keyOff : AppTokens.textSecondary;
