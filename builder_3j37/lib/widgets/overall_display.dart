@@ -20,6 +20,7 @@ class _OverallDisplayState extends State<OverallDisplay> {
   bool _expanded = true;
 
   void _toggleExpanded() {
+    FocusScope.of(context).unfocus();
     setState(() {
       _expanded = !_expanded;
       widget.onExpandedChanged?.call(_expanded);

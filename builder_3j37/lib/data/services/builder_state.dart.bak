@@ -294,7 +294,6 @@ class BuilderState extends ChangeNotifier {
   }
 
   List<int> getCapBreakerSequence(int attrIndex) {
-    if (!_cbEngine.hasModelData) return [];
     final values = <String, int>{};
     for (int i = 0; i < 21; i++) {
       values[CapBreakerEngine.getAttributeId(i)] = _ratings[i] + getCapBreakerGain(i);
@@ -380,7 +379,6 @@ class BuilderState extends ChangeNotifier {
   String get heightDisplay { final f = _heightInches ~/ 12; final i = _heightInches % 12; final cm = (_heightInches * 2.54).round(); return "$f'$i\" / ${cm}cm"; }
   String get weightDisplay { final kg = (_weightLb * 0.453592).round(); return '$_weightLb lbs / ${kg}kg'; }
   String get wingspanDisplay { final f = _wingspanInches ~/ 12; final i = _wingspanInches % 12; final cm = (_wingspanInches * 2.54).round(); return "$f'$i\" / ${cm}cm"; }
-
 }
 
 class BadgeStatus {

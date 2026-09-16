@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../data/services/builder_state.dart';
 import '../data/services/dataset_loader.dart';
+import '../data/services/cap_breaker_engine.dart';
 import '../theme/app_tokens.dart';
 import '../widgets/attribute_group.dart';
 import '../widgets/badge_panel.dart';
@@ -26,6 +27,10 @@ class _BuilderScreenState extends State<BuilderScreen> {
   bool _minimapExpanded = false;
   final ScrollController _scrollController = ScrollController();
 
+  void _dismissKeyboard() {
+    FocusScope.of(context).unfocus();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -43,6 +48,11 @@ class _BuilderScreenState extends State<BuilderScreen> {
     await loader.loadEssential();
     if (mounted) setState(() => _essentialLoading = false);
     await loader.loadHeavy();
+    // Load model into cap breaker engine
+    if (loader.modelWeights != null && loader.modelCurves != null) {
+      CapBreakerEngine().loadModelData(loader.modelWeights!, loader.modelCurves!, overallScale: loader.modelOverallScale);
+      debugPrint('[BuilderScreen] Cap breaker model loaded: ${loader.modelWeights!.length} weights, ${loader.modelCurves!.length} curves');
+    }
     if (mounted) setState(() => _heavyLoading = false);
   }
 
@@ -117,6 +127,7 @@ class _BuilderScreenState extends State<BuilderScreen> {
     return ChangeNotifierProvider(
       create: (_) => BuilderState(),
       child: Scaffold(
+        resizeToAvoidBottomInset: false,
         backgroundColor: AppTokens.background,
         body: Stack(
           children: [
@@ -141,21 +152,30 @@ class _BuilderScreenState extends State<BuilderScreen> {
           children: [
             Positioned.fill(child: Container(color: AppTokens.background)),
             Positioned.fill(
-              child: SingleChildScrollView(
-                controller: _scrollController,
-                padding: EdgeInsets.fromLTRB(
-                  AppTokens.pageEdge,
-                  topInset,
-                  AppTokens.pageEdge,
-                  AppTokens.contentBottomInset,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const AttributeGroups(),
-                    const SizedBox(height: 16),
-                    const CapBreakersPanel(),
-                  ],
+              child: Listener(
+                onPointerDown: (_) => _dismissKeyboard(),
+                child: NotificationListener<UserScrollNotification>(
+                  onNotification: (_) {
+                    _dismissKeyboard();
+                    return false;
+                  },
+                  child: SingleChildScrollView(
+                    controller: _scrollController,
+                    padding: EdgeInsets.fromLTRB(
+                      AppTokens.pageEdge,
+                      topInset,
+                      AppTokens.pageEdge,
+                      AppTokens.contentBottomInset,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        AttributeGroups(),
+                        const SizedBox(height: 16),
+                        if (!_heavyLoading) const CapBreakersPanel(),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -237,13 +257,11 @@ class _BuilderScreenState extends State<BuilderScreen> {
                     children: [
                       const Spacer(),
                       _buildPillButton(
-                        icon: Icons.shield,
                         label: 'Badges',
                         onTap: _openBadges,
                       ),
                       const SizedBox(width: 8),
                       _buildPillButton(
-                        icon: Icons.animation,
                         label: 'Moves',
                         onTap: _openMoves,
                       ),
@@ -411,7 +429,7 @@ class _BuilderScreenState extends State<BuilderScreen> {
   }
 
   Widget _buildPillButton({
-    required IconData icon,
+    IconData? icon,
     required String label,
     required VoidCallback onTap,
     bool highlight = false,
@@ -440,9 +458,11 @@ class _BuilderScreenState extends State<BuilderScreen> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 16, color: foreground),
-              if (label.isNotEmpty) ...[
-                const SizedBox(width: 6),
+              if (icon != null) ...[
+                Icon(icon, size: 16, color: foreground),
+                if (label.isNotEmpty) const SizedBox(width: 6),
+              ],
+              if (label.isNotEmpty)
                 Text(
                   label,
                   style: TextStyle(
@@ -452,7 +472,6 @@ class _BuilderScreenState extends State<BuilderScreen> {
                     fontFamily: AppTokens.fontFamily,
                   ),
                 ),
-              ],
             ],
           ),
         ),

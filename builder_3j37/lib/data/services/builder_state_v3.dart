@@ -75,6 +75,13 @@ class BuilderStateV3 extends ChangeNotifier {
   // Track which attributes user has manually touched
   List<bool> _userTouched = List.filled(21, false);
 
+  // Lock state (manual only - never auto-locks)
+  final Set<int> _lockedAttributes = {};
+
+  // Goal state
+  final Map<int, int> _goalRatings = {};
+  final Set<int> _goalActive = {};
+
   Map<int, BadgeTier?> _equippedBadges = {};
 
   // Getters
@@ -124,16 +131,26 @@ class BuilderStateV3 extends ChangeNotifier {
     if (appliedCount >= 5) return null; // Max 5 cap breakers
     
     // Calculate current rating with applied cap breakers
+    final appliedGains = _appliedCapBreakers[attrIndex];
     final currentRating = _baseRatings[attrIndex] + 
-        (_appliedCapBreakers[attrIndex]?.fold(0, (sum, g) => sum + g) ?? 0);
+        (appliedGains != null ? appliedGains.fold<int>(0, (sum, g) => sum + g) : 0);
     
-    if (currentRating >= 99) return null; // Already at max
+    if (currentRating >= _physicalCaps[attrIndex]) return null; // Already at physical cap
     
-    // Use near_caps scenario when close to cap, isolated otherwise
-    final scenario = CapBreakerEngine.suggestScenario(currentRating, _physicalCaps[attrIndex]);
-    
-    // Look up gain for current rating and application index
-    return _cbEngine.getGain(scenario, attrIndex, currentRating, appliedCount);
+    // Build current values map for model-based calculation
+    final values = <String, int>{};
+    for (int i = 0; i < 21; i++) {
+      values[CapBreakerEngine.getAttributeId(i)] = _baseRatings[i] + 
+          ((_appliedCapBreakers[i]?.fold<int>(0, (s, g) => s + g)) ?? 0);
+    }
+    final body = CapBreakerBody(
+      position: _position.name.toUpperCase(),
+      height: _heightInches,
+      weight: _weightLb,
+      wingspan: _wingspanInches,
+    );
+    return _cbEngine.getNextGain(attrIndex, currentRating, appliedCount, 
+        values: values, body: body, physicalCaps: _physicalCaps);
   }
 
   /// Check if a cap breaker can be applied to an attribute
@@ -240,6 +257,7 @@ class BuilderStateV3 extends ChangeNotifier {
   }
 
   void setRating(int attrIndex, int value) {
+    if (_lockedAttributes.contains(attrIndex)) return;
     // Clamp to 25 and physical cap (not including cap breakers)
     final newValue = value.clamp(25, _physicalCaps[attrIndex]);
     if (_baseRatings[attrIndex] == newValue) return;
@@ -462,4 +480,73 @@ class BuilderStateV3 extends ChangeNotifier {
     _recalculateFinalRatings();
     notifyListeners();
   }
+
+
+  // ── Lock methods (manual only, never auto-lock) ────────
+  Map<int, int> get goalRatings => Map.unmodifiable(_goalRatings);
+  Set<int> get goalActive => Set.unmodifiable(_goalActive);
+
+  bool isAttributeLocked(int attrIndex) => _lockedAttributes.contains(attrIndex);
+
+  void toggleAttributeLock(int attrIndex) {
+    if (_lockedAttributes.contains(attrIndex)) {
+      _lockedAttributes.remove(attrIndex);
+    } else {
+      _lockedAttributes.add(attrIndex);
+    }
+    notifyListeners();
+  }
+
+  bool canAdjustAttribute(int attrIndex) => !_lockedAttributes.contains(attrIndex);
+
+  // ── Goal methods ──────────────────────────────────────
+  bool isGoalActive(int attrIndex) => _goalActive.contains(attrIndex);
+  int? getGoalRating(int attrIndex) => _goalRatings[attrIndex];
+
+  void toggleGoal(int attrIndex) {
+    if (_goalActive.contains(attrIndex)) {
+      _goalActive.remove(attrIndex);
+    } else {
+      _goalActive.add(attrIndex);
+      if (!_goalRatings.containsKey(attrIndex)) {
+        _goalRatings[attrIndex] = _baseRatings[attrIndex];
+      }
+    }
+    notifyListeners();
+  }
+
+  void setGoalRating(int attrIndex, int value) {
+    _goalRatings[attrIndex] = value;
+    notifyListeners();
+  }
+
+  void confirmGoal(int attrIndex) {
+    _goalActive.remove(attrIndex);
+    notifyListeners();
+  }
+
+  void clearGoal(int attrIndex) {
+    _goalRatings.remove(attrIndex);
+    _goalActive.remove(attrIndex);
+    notifyListeners();
+  }
+
+  // ── Cap breaker sequence ──────────────────────────────
+  CapBreakerBody get capBreakerBody => CapBreakerBody(
+    position: _position.name.toUpperCase(),
+    height: _heightInches,
+    weight: _weightLb,
+    wingspan: _wingspanInches,
+  );
+
+  List<int> getCapBreakerSequence(int attrIndex) {
+    final values = <String, int>{};
+    for (int i = 0; i < 21; i++) {
+      values[CapBreakerEngine.getAttributeId(i)] = _baseRatings[i] +
+          ((_appliedCapBreakers[i]?.fold<int>(0, (s, g) => s + g)) ?? 0);
+    }
+    return _cbEngine.getChainedGains(attrIndex, _baseRatings[attrIndex],
+        values: values, body: capBreakerBody, physicalCaps: _physicalCaps);
+  }
+
 }

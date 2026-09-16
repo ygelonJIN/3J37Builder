@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../data/services/builder_state.dart';
-import '../data/services/dataset_loader.dart';
+import '../data/services/cap_breaker_engine.dart';
 import '../theme/app_tokens.dart';
 import 'package:provider/provider.dart';
 
@@ -10,7 +10,6 @@ class CapBreakersPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<BuilderState>();
-    final loader = DatasetLoader();
     final caps = state.getAttributeCaps();
     final ratings = state.ratings;
 
@@ -29,35 +28,38 @@ class CapBreakersPanel extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Cap Breakers', style: AppTokens.cardTitleStyle.copyWith(fontSize: 14)),
+        Row(
+          children: [
+            Text('Cap Breakers', style: AppTokens.cardTitleStyle.copyWith(fontSize: 14)),
+            const Spacer(),
+            if (state.hasAnyCapBreakers)
+              TextButton.icon(
+                onPressed: () => state.clearAllCapBreakers(),
+                icon: const Icon(Icons.clear_all, size: 16),
+                label: const Text('重置', style: TextStyle(fontSize: 12)),
+              ),
+          ],
+        ),
         const SizedBox(height: 4),
         Text(
-          'Each attribute can use up to 5 cap breakers to exceed its current cap.',
-          style: AppTokens.caption.copyWith(fontSize: 11),
+          '已使用: ${state.totalCapBreakersApplied} / 28',
+          style: AppTokens.caption.copyWith(fontSize: 11, color: AppTokens.primary),
         ),
         const SizedBox(height: 12),
-        ...attributesWithHeadroom.map((i) => _buildCapBreakerRow(context, i, ratings[i], caps[i], loader)),
+        ...attributesWithHeadroom.map((i) => _buildCapBreakerRow(context, state, i, ratings[i], caps[i])),
       ],
     );
   }
 
-  Widget _buildCapBreakerRow(BuildContext context, int attrIndex, int rating, int cap, DatasetLoader loader) {
-    final gains = loader.getCapBreakerGains(attrIndex, rating);
-    final headroom = cap - rating;
+  Widget _buildCapBreakerRow(BuildContext context, BuilderState state, int attrIndex, int rating, int cap) {
+    final gains = state.getCapBreakerSequence(attrIndex);
+    final appliedCount = state.getAppliedCapBreakerCount(attrIndex);
+    final appliedGain = state.getCapBreakerGain(attrIndex);
+    final nextGain = state.getNextCapBreakerGain(attrIndex);
+    final canApply = state.canApplyCapBreaker(attrIndex);
     
-    // 计算可用的 cap breakers 数量
-    int availableBreakers = 0;
-    int totalGain = 0;
-    for (final gain in gains) {
-      if (totalGain + gain.gain <= headroom) {
-        availableBreakers++;
-        totalGain += gain.gain;
-      } else {
-        break;
-      }
-    }
-
-    final attrName = _attrName(attrIndex);
+    final attrName = CapBreakerEngine.getAttributeName(attrIndex);
+    final categoryColor = _getCategoryColor(attrIndex);
     
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -65,68 +67,84 @@ class CapBreakersPanel extends StatelessWidget {
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
           color: AppTokens.surfaceAlt,
-          border: Border.all(color: AppTokens.cardBorder.withValues(alpha: 0.3)),
+          border: Border.all(
+            color: appliedCount > 0 
+                ? AppTokens.primary.withValues(alpha: 0.5)
+                : AppTokens.cardBorder.withValues(alpha: 0.3),
+          ),
           borderRadius: BorderRadius.circular(AppTokens.radius),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Header
             Row(
               children: [
                 Expanded(
-                  child: Text(
-                    attrName,
-                    style: AppTokens.body.copyWith(fontSize: 12, fontWeight: FontWeight.w600),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(attrName, style: AppTokens.body.copyWith(fontSize: 12, fontWeight: FontWeight.w600)),
+                      if (appliedCount > 0)
+                        Text(
+                          '+$appliedGain ($appliedCount枚)',
+                          style: AppTokens.caption.copyWith(fontSize: 10, color: AppTokens.primary),
+                        ),
+                    ],
                   ),
                 ),
                 Text(
-                  '$rating/$cap',
-                  style: AppTokens.body.copyWith(
-                    fontSize: 12,
-                    color: AppTokens.primary,
-                  ),
+                  '$rating → ${rating + appliedGain}',
+                  style: AppTokens.body.copyWith(fontSize: 12, color: categoryColor),
                 ),
               ],
             ),
             const SizedBox(height: 8),
-            // 显示5个 Cap Breaker 格子
+            // Tier buttons
             Row(
               children: List.generate(5, (index) {
-                final isAvailable = index < gains.length;
-                final gain = isAvailable ? gains[index] : null;
-                final isUsable = gain != null && (rating + _calculateTotalGain(gains, index)) <= cap;
+                final isApplied = index < appliedCount;
+                final isNext = index == appliedCount && canApply;
+                final gain = index < gains.length ? gains[index] : null;
                 
                 return Expanded(
-                  child: Container(
-                    margin: EdgeInsets.only(right: index < 4 ? 4 : 0),
-                    height: 24,
-                    decoration: BoxDecoration(
-                      color: isUsable 
-                          ? AppTokens.primary.withValues(alpha: 0.2)
-                          : AppTokens.surface,
-                      border: Border.all(
-                        color: isUsable 
-                            ? AppTokens.primary 
-                            : AppTokens.keyOff.withValues(alpha: 0.3),
-                        width: 1,
+                  child: GestureDetector(
+                    onTap: isApplied 
+                        ? () => state.removeCapBreaker(attrIndex)
+                        : isNext 
+                            ? () => state.applyCapBreaker(attrIndex)
+                            : null,
+                    child: Container(
+                      margin: EdgeInsets.only(right: index < 4 ? 4 : 0),
+                      height: 28,
+                      decoration: BoxDecoration(
+                        color: isApplied 
+                            ? AppTokens.primary.withValues(alpha: 0.3)
+                            : isNext 
+                                ? AppTokens.primary.withValues(alpha: 0.1)
+                                : AppTokens.surface,
+                        border: Border.all(
+                          color: isApplied 
+                              ? AppTokens.primary 
+                              : isNext 
+                                  ? AppTokens.primary.withValues(alpha: 0.5)
+                                  : AppTokens.keyOff.withValues(alpha: 0.3),
+                          width: isApplied ? 2 : 1,
+                        ),
+                        borderRadius: BorderRadius.circular(4),
                       ),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                    child: Center(
-                      child: isUsable && gain != null
-                          ? Text(
-                              '+${gain.gain}',
-                              style: AppTokens.caption.copyWith(
-                                fontSize: 10,
-                                color: AppTokens.primary,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            )
-                          : Icon(
-                              Icons.lock,
-                              size: 12,
-                              color: AppTokens.keyOff,
-                            ),
+                      child: Center(
+                        child: gain != null
+                            ? Text(
+                                '+$gain',
+                                style: AppTokens.caption.copyWith(
+                                  fontSize: 10,
+                                  color: isApplied ? AppTokens.primary : AppTokens.textSecondary,
+                                  fontWeight: isApplied ? FontWeight.w700 : FontWeight.w500,
+                                ),
+                              )
+                            : Icon(Icons.lock, size: 12, color: AppTokens.keyOff),
+                      ),
                     ),
                   ),
                 );
@@ -138,20 +156,20 @@ class CapBreakersPanel extends StatelessWidget {
     );
   }
 
-  int _calculateTotalGain(List<dynamic> gains, int upToIndex) {
-    int total = 0;
-    for (int i = 0; i <= upToIndex && i < gains.length; i++) {
-      total += (gains[i] as dynamic).gain as int;
-    }
-    return total;
-  }
-
-  String _attrName(int index) {
-    const names = [
-      'Close Shot', 'Driving Layup', 'Driving Dunk', 'Standing Dunk', 'Post Control',
-      'Mid Range', '3PT', 'Free Throw', 'Pass Acc', 'Ball Handle', 'Spd w/ Ball',
-      'Int Def', 'Per Def', 'Steal', 'Block', 'OReb', 'DReb', 'Speed', 'Agility', 'Strength', 'Vertical',
-    ];
-    return index < names.length ? names[index] : 'Attr $index';
+  Color _getCategoryColor(int attrIndex) {
+    const categoryColors = {
+      'finishing': 0xFF00a4ff,
+      'shooting': 0xFF31de74,
+      'playmaking': 0xFFFFc600,
+      'defense': 0xFFFF6466,
+      'rebounding': 0xFFb57eff,
+      'physical': 0xFFc4a882,
+    };
+    if (attrIndex < 5) return Color(categoryColors['finishing']!);
+    if (attrIndex < 8) return Color(categoryColors['shooting']!);
+    if (attrIndex < 11) return Color(categoryColors['playmaking']!);
+    if (attrIndex < 15) return Color(categoryColors['defense']!);
+    if (attrIndex < 17) return Color(categoryColors['rebounding']!);
+    return Color(categoryColors['physical']!);
   }
 }

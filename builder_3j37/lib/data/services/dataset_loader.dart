@@ -7,6 +7,266 @@ import '../models/badge_data.dart';
 import '../models/takeover_data.dart';
 import '../models/animation_data.dart';
 import 'tuning_parser.dart';
+import 'website_logic.dart' as website_logic;
+
+// ============================================================
+// Data model classes for cap_breaker_model.json new fields
+// ============================================================
+
+/// Constraint pair: [attributeIndex, minimumValue]
+typedef ConstraintPair = List<int>;
+
+/// Body caps lookup tables from cap_breaker_model.json
+/// Each table has 420 values (20 heights × 21 attributes), stored in row-major order.
+class BodyCapsTables {
+  /// Base caps multiplier (20 heights × 21 attrs)
+  final List<double> base;
+
+  /// Weight-low interpolation table (20 heights × 21 attrs)
+  final List<double> weightLow;
+
+  /// Weight-high interpolation table (20 heights × 21 attrs)
+  final List<double> weightHigh;
+
+  /// Wingspan-low interpolation table (20 heights × 21 attrs)
+  final List<double> wingspanLow;
+
+  /// Wingspan-high interpolation table (20 heights × 21 attrs)
+  final List<double> wingspanHigh;
+
+  const BodyCapsTables({
+    required this.base,
+    required this.weightLow,
+    required this.weightHigh,
+    required this.wingspanLow,
+    required this.wingspanHigh,
+  });
+
+  /// Look up a value in a flat table by heightIndex (0-19) and attributeIndex (0-20)
+  static double lookup(List<double> table, int heightIndex, int attrIndex) {
+    return table[heightIndex * 21 + attrIndex];
+  }
+}
+
+/// Ranges for weight and wingspan per height (indexed by availableHeights index)
+class BodyCapsRanges {
+  /// Minimum weight for each height (20 values)
+  final List<int> weightMin;
+
+  /// Maximum weight for each height (20 values)
+  final List<int> weightMax;
+
+  /// Minimum wingspan for each height (20 values)
+  final List<int> wingspanMin;
+
+  /// Maximum wingspan for each height (20 values)
+  final List<int> wingspanMax;
+
+  const BodyCapsRanges({
+    required this.weightMin,
+    required this.weightMax,
+    required this.wingspanMin,
+    required this.wingspanMax,
+  });
+}
+
+/// Complete body caps data: tables + ranges
+class BodyCapsData {
+  final BodyCapsTables tables;
+  final BodyCapsRanges ranges;
+
+  const BodyCapsData({required this.tables, required this.ranges});
+}
+
+/// Badge model from cap_breaker_model.json
+/// Contains heightBase, heightCount, and the full badge definitions with per-height max levels.
+class ModelBadge {
+  /// Badge name (e.g. "Float Game")
+  final String name;
+
+  /// Category (e.g. "finishing")
+  final String category;
+
+  /// 5 tiers (Bronze/Silver/Gold/HoF/Legend). Each tier is a list of requirement groups.
+  /// Each requirement group is a list of [attributeIndex, minimum, operator].
+  /// operator: 0 = AND, 2 = OR (matches website logic).
+  final List<List<List<int>>> levels;
+
+  /// Max level achievable at each height index (31 values, indexed from heightBase).
+  final List<int> heightMaxLevels;
+
+  const ModelBadge({
+    required this.name,
+    required this.category,
+    required this.levels,
+    required this.heightMaxLevels,
+  });
+
+  /// Parse from JSON (single badge object)
+  factory ModelBadge.fromJson(Map<String, dynamic> json) {
+    final levelsRaw = json['levels'] as List;
+    final levels = <List<List<int>>>[];
+    for (final tier in levelsRaw) {
+      final tierGroups = <List<int>>[];
+      if (tier is List) {
+        for (final req in tier) {
+          if (req is Map) {
+            tierGroups.add([
+              req['attributeIndex'] as int,
+              req['minimum'] as int,
+              req['operator'] as int,
+            ]);
+          }
+        }
+      }
+      levels.add(tierGroups);
+    }
+
+    return ModelBadge(
+      name: json['name'] as String,
+      category: json['category'] as String,
+      levels: levels,
+      heightMaxLevels: (json['heightMaxLevels'] as List).cast<int>(),
+    );
+  }
+
+  /// Get max level for a given height in inches
+  int getMaxLevel(int heightInches, int heightBase) {
+    final idx = heightInches - heightBase;
+    if (idx < 0 || idx >= heightMaxLevels.length) return 0;
+    return heightMaxLevels[idx];
+  }
+}
+
+/// Badge model data container
+class BadgeModelData {
+  /// Height base (e.g. 63 = 5'3")
+  final int heightBase;
+
+  /// Number of height entries (e.g. 31)
+  final int heightCount;
+
+  /// All badge definitions
+  final List<ModelBadge> badges;
+
+  const BadgeModelData({
+    required this.heightBase,
+    required this.heightCount,
+    required this.badges,
+  });
+}
+
+/// Badge token tuning entry (one position+height combination)
+class BadgeTokenTuning {
+  final String position;
+  final int height;
+  final List<String> attrNames;
+
+  /// Map of attributeName -> discipline string (e.g. "finishing")
+  final Map<String, String> discipline;
+
+  /// Map of attributeName -> rate (double)
+  final Map<String, double> rate;
+
+  /// Map of attributeName -> baseline (int)
+  final Map<String, int> baseline;
+
+  const BadgeTokenTuning({
+    required this.position,
+    required this.height,
+    required this.attrNames,
+    required this.discipline,
+    required this.rate,
+    required this.baseline,
+  });
+
+  factory BadgeTokenTuning.fromJson(Map<String, dynamic> json) {
+    final attrNames = (json['attrNames'] as List).map((e) => e.toString()).toList();
+    final disciplineMap = <String, String>{};
+    final rateMap = <String, double>{};
+    final baselineMap = <String, int>{};
+
+    final disciplineRaw = json['discipline'] as Map<String, dynamic>;
+    final rateRaw = json['rate'] as Map<String, dynamic>;
+    final baselineRaw = json['baseline'] as Map<String, dynamic>;
+
+    for (final attr in attrNames) {
+      disciplineMap[attr] = disciplineRaw[attr].toString();
+      rateMap[attr] = (rateRaw[attr] as num).toDouble();
+      baselineMap[attr] = (baselineRaw[attr] as num).toInt();
+    }
+
+    return BadgeTokenTuning(
+      position: json['position'] as String,
+      height: json['height'] as int,
+      attrNames: attrNames,
+      discipline: disciplineMap,
+      rate: rateMap,
+      baseline: baselineMap,
+    );
+  }
+}
+
+/// Badge token model container (tunings + costs)
+class BadgeTokenModelData {
+  final int version;
+  final String gameVersion;
+  final List<BadgeTokenTuning> tunings;
+
+  /// Map of badgeName -> Map of tierName -> cost
+  /// e.g. { "FloatGame": { "Bronze": 3, "Silver": 2, ... } }
+  final Map<String, Map<String, int>> costs;
+
+  const BadgeTokenModelData({
+    required this.version,
+    required this.gameVersion,
+    required this.tunings,
+    required this.costs,
+  });
+}
+
+/// Takeover requirement from cap_breaker_model.json (model version)
+class ModelTakeoverRequirement {
+  /// Attribute name (e.g. "closeShot")
+  final String attribute;
+
+  /// Minimum rating required
+  final int minValue;
+
+  const ModelTakeoverRequirement({
+    required this.attribute,
+    required this.minValue,
+  });
+}
+
+/// Takeover entry from cap_breaker_model.json
+class ModelTakeover {
+  /// Internal name (e.g. "INSIDE_TOUCH")
+  final String name;
+
+  /// Display name (e.g. "Inside Touch")
+  final String displayName;
+
+  /// Requirements to unlock this takeover
+  final List<ModelTakeoverRequirement> requirements;
+
+  const ModelTakeover({
+    required this.name,
+    required this.displayName,
+    required this.requirements,
+  });
+}
+
+/// Takeover model container
+class TakeoverModelData {
+  final List<ModelTakeover> takeovers;
+
+  const TakeoverModelData({required this.takeovers});
+}
+
+// ============================================================
+// DatasetLoader - main loader class
+// ============================================================
 
 class DatasetLoader {
   static final DatasetLoader _instance = DatasetLoader._();
@@ -26,21 +286,43 @@ class DatasetLoader {
   List<AnimTab> animTabs = [];
 
   // Cap Breakers 数据
-  Map<String, List<CapBreakerGain>> capBreakerGains = {};
 
   bool _essentialLoaded = false;
   bool _heavyLoaded = false;
 
+  /// 解密的破帽器模型数据
+  List<double>? modelWeights;
+  List<double>? modelCurves;
+  List<double>? modelOverallScale;
+
+  // ============================================================
+  // NEW: Fields from cap_breaker_model.json
+  // ============================================================
+
+  /// Available heights list (e.g. [69, 70, ..., 88])
+  List<int> availableHeights = [];
+
+  /// Body caps data (tables + ranges) from model
+  BodyCapsData? bodyCapsData;
+
+  /// Constraint graphs: indexed by [heightIndex][attrIndex] -> list of [attrIndex, minValue] pairs
+  /// 20 heights × 21 attributes, each with a list of constraint pairs
+  List<List<List<ConstraintPair>>> constraintGraphs = [];
+
+  /// Badge model (heightBase, heightCount, badges with per-height max levels)
+  BadgeModelData? badgeModelData;
+
+  /// Badge token model (tunings + costs)
+  BadgeTokenModelData? badgeTokenModelData;
+
+  /// Takeover model (takeovers with requirements)
+  TakeoverModelData? takeoverModelData;
+
+  /// gameVersion string from model (e.g. "2K27")
+  String gameVersion = '';
+
   bool get isLoaded => _essentialLoaded && _heavyLoaded;
   bool get isEssentialLoaded => _essentialLoaded;
-
-  /// 获取某个属性在当前 rating 下的 Cap Breaker 增益
-  List<CapBreakerGain> getCapBreakerGains(int attributeIndex, int rating, {String scenario = 'near_caps'}) {
-    // 优先使用 near_caps，回退到 isolated
-    return capBreakerGains['$scenario-$attributeIndex-$rating'] 
-        ?? capBreakerGains['isolated-$attributeIndex-$rating'] 
-        ?? [];
-  }
 
   /// Phase 1: Load essential data + tuning file
   Future<void> loadEssential() async {
@@ -112,25 +394,149 @@ class DatasetLoader {
       debugPrint('[DatasetLoader] Stack: $st');
     }
 
-    // Load cap breakers gains
+    // Load cap breaker model (decrypted from 2khoopscope.com)
     try {
-      final gainsStr = await rootBundle.loadString('assets/data/gains_by_rating.json');
-      debugPrint('[DatasetLoader] gains_by_rating loaded: ${gainsStr.length} bytes');
-      final gainsJson = json.decode(gainsStr) as Map<String, dynamic>;
-      final gainsList = gainsJson['data'] as List;
-      for (final g in gainsList) {
-        final scenario = g['scenario'] as String;
-        final attrIndex = g['attribute'] as int;
-        final rating = g['rating'] as int;
-        final application = g['application'] as int;
-        final gain = g['gain'] as int;
-        final key = '$scenario-$attrIndex-$rating';
-        capBreakerGains.putIfAbsent(key, () => []);
-        capBreakerGains[key]!.add(CapBreakerGain(application: application, gain: gain));
+      final modelStr = await rootBundle.loadString('assets/data/cap_breaker_model.json');
+      debugPrint('[DatasetLoader] cap_breaker_model loaded: ${modelStr.length} bytes');
+      final modelJson = json.decode(modelStr) as Map<String, dynamic>;
+
+      // Existing fields
+      modelWeights = (modelJson['weights'] as List).map((e) => (e as num).toDouble()).toList();
+      modelCurves = (modelJson['curves'] as List).map((e) => (e as num).toDouble()).toList();
+      modelOverallScale = (modelJson['overallScale'] as List).map((e) => (e as num).toDouble()).toList();
+      debugPrint('[DatasetLoader] Model: ${modelWeights?.length} weights, ${modelCurves?.length} curves');
+
+      // NEW: gameVersion
+      gameVersion = modelJson['gameVersion']?.toString() ?? '';
+      debugPrint('[DatasetLoader] gameVersion: $gameVersion');
+
+      // NEW: availableHeights
+      availableHeights = (modelJson['availableHeights'] as List?)?.map((e) => (e as num).toInt()).toList() ?? [];
+      debugPrint('[DatasetLoader] availableHeights: ${availableHeights.length} entries');
+
+      // NEW: bodyCaps (tables + ranges)
+      final bodyCapsJson = modelJson['bodyCaps'] as Map<String, dynamic>?;
+      if (bodyCapsJson != null) {
+        final tablesJson = bodyCapsJson['tables'] as Map<String, dynamic>;
+        final rangesJson = bodyCapsJson['ranges'] as Map<String, dynamic>;
+
+        final tables = BodyCapsTables(
+          base: (tablesJson['base'] as List).map((e) => (e as num).toDouble()).toList(),
+          weightLow: (tablesJson['weightLow'] as List).map((e) => (e as num).toDouble()).toList(),
+          weightHigh: (tablesJson['weightHigh'] as List).map((e) => (e as num).toDouble()).toList(),
+          wingspanLow: (tablesJson['wingspanLow'] as List).map((e) => (e as num).toDouble()).toList(),
+          wingspanHigh: (tablesJson['wingspanHigh'] as List).map((e) => (e as num).toDouble()).toList(),
+        );
+
+        final ranges = BodyCapsRanges(
+          weightMin: (rangesJson['weightMin'] as List).map((e) => (e as num).toInt()).toList(),
+          weightMax: (rangesJson['weightMax'] as List).map((e) => (e as num).toInt()).toList(),
+          wingspanMin: (rangesJson['wingspanMin'] as List).map((e) => (e as num).toInt()).toList(),
+          wingspanMax: (rangesJson['wingspanMax'] as List).map((e) => (e as num).toInt()).toList(),
+        );
+
+        bodyCapsData = BodyCapsData(tables: tables, ranges: ranges);
+        debugPrint('[DatasetLoader] bodyCaps loaded: ${tables.base.length} base values, ${ranges.weightMin.length} heights');
       }
-      debugPrint('[DatasetLoader] ${capBreakerGains.length} cap breaker entries parsed');
+
+      // NEW: constraintGraphs (20 heights × 21 attrs × N constraint pairs)
+      final constraintGraphsJson = modelJson['constraintGraphs'] as List?;
+      if (constraintGraphsJson != null) {
+        constraintGraphs = [];
+        for (final heightEntry in constraintGraphsJson) {
+          final heightGraphs = <List<ConstraintPair>>[];
+          if (heightEntry is List) {
+            for (final attrEntry in heightEntry) {
+              final pairs = <ConstraintPair>[];
+              if (attrEntry is List) {
+                for (final pair in attrEntry) {
+                  if (pair is List && pair.length >= 2) {
+                    pairs.add([(pair[0] as num).toInt(), (pair[1] as num).toInt()]);
+                  }
+                }
+              }
+              heightGraphs.add(pairs);
+            }
+          }
+          constraintGraphs.add(heightGraphs);
+        }
+        debugPrint('[DatasetLoader] constraintGraphs loaded: ${constraintGraphs.length} heights × ${constraintGraphs.isNotEmpty ? constraintGraphs[0].length : 0} attrs');
+      }
+
+      // NEW: badgeModel (heightBase, heightCount, badges)
+      final badgeModelJson = modelJson['badgeModel'] as Map<String, dynamic>?;
+      if (badgeModelJson != null) {
+        final heightBase = badgeModelJson['heightBase'] as int;
+        final heightCount = badgeModelJson['heightCount'] as int;
+        final badgesList = (badgeModelJson['badges'] as List)
+            .map((b) => ModelBadge.fromJson(b as Map<String, dynamic>))
+            .toList();
+
+        badgeModelData = BadgeModelData(
+          heightBase: heightBase,
+          heightCount: heightCount,
+          badges: badgesList,
+        );
+        debugPrint('[DatasetLoader] badgeModel loaded: heightBase=$heightBase, heightCount=$heightCount, ${badgesList.length} badges');
+      }
+
+      // NEW: badgeTokenModel (tunings + costs)
+      final badgeTokenModelJson = modelJson['badgeTokenModel'] as Map<String, dynamic>?;
+      if (badgeTokenModelJson != null) {
+        final version = badgeTokenModelJson['version'] as int;
+        final versionGame = badgeTokenModelJson['gameVersion']?.toString() ?? '';
+        final tuningsList = (badgeTokenModelJson['tunings'] as List)
+            .map((t) => BadgeTokenTuning.fromJson(t as Map<String, dynamic>))
+            .toList();
+
+        final costsMap = <String, Map<String, int>>{};
+        final costsRaw = badgeTokenModelJson['costs'] as Map<String, dynamic>;
+        costsRaw.forEach((badgeName, tierCosts) {
+          if (tierCosts is Map) {
+            final tierMap = <String, int>{};
+            tierCosts.forEach((tier, cost) {
+              tierMap[tier.toString()] = (cost as num).toInt();
+            });
+            costsMap[badgeName] = tierMap;
+          }
+        });
+
+        badgeTokenModelData = BadgeTokenModelData(
+          version: version,
+          gameVersion: versionGame,
+          tunings: tuningsList,
+          costs: costsMap,
+        );
+        debugPrint('[DatasetLoader] badgeTokenModel loaded: ${tuningsList.length} tunings, ${costsMap.length} cost entries');
+      }
+
+      // NEW: takeoverModel (takeovers)
+      final takeoverModelJson = modelJson['takeoverModel'] as Map<String, dynamic>?;
+      if (takeoverModelJson != null) {
+        final takeoversList = (takeoverModelJson['takeovers'] as List).map((t) {
+          final tMap = t as Map<String, dynamic>;
+          final reqsRaw = tMap['requirements'] as List? ?? [];
+          final reqs = reqsRaw.map((r) {
+            final rMap = r as Map<String, dynamic>;
+            return ModelTakeoverRequirement(
+              attribute: rMap['attribute'].toString(),
+              minValue: (rMap['minValue'] as num).toInt(),
+            );
+          }).toList();
+
+          return ModelTakeover(
+            name: tMap['name'].toString(),
+            displayName: tMap['displayName'].toString(),
+            requirements: reqs,
+          );
+        }).toList();
+
+        takeoverModelData = TakeoverModelData(takeovers: takeoversList);
+        debugPrint('[DatasetLoader] takeoverModel loaded: ${takeoversList.length} takeovers');
+      }
+
     } catch (e, st) {
-      debugPrint('[DatasetLoader] gains_by_rating ERROR (non-fatal): $e');
+      debugPrint('[DatasetLoader] cap_breaker_model ERROR (non-fatal): $e');
       debugPrint('[DatasetLoader] Stack: $st');
     }
 
@@ -261,6 +667,22 @@ class DatasetLoader {
     try {
       final legal = getLegalBody(pos);
       if (legal == null) return null;
+      // Use model data if available, otherwise fall back to hardcoded defaults
+      if (bodyCapsData != null && availableHeights.isNotEmpty) {
+        final heightIdx = availableHeights.indexOf(heightInches);
+        if (heightIdx >= 0) {
+          return BodyRange(
+            heightInches: heightInches,
+            minWeight: bodyCapsData!.ranges.weightMin[heightIdx],
+            maxWeight: bodyCapsData!.ranges.weightMax[heightIdx],
+            defaultWeight: bodyCapsData!.ranges.weightMin[heightIdx], // Default = min
+            minWingspan: bodyCapsData!.ranges.wingspanMin[heightIdx],
+            maxWingspan: bodyCapsData!.ranges.wingspanMax[heightIdx],
+            defaultWingspan: bodyCapsData!.ranges.wingspanMin[heightIdx], // Default = min
+          );
+        }
+      }
+      // Fallback to hardcoded defaults
       return BodyRange(
         heightInches: heightInches,
         minWeight: 150,
@@ -276,7 +698,9 @@ class DatasetLoader {
   }
 
   List<int> getAttributeCaps(Position pos, int heightInches, int weightLb, int wingspanInches) {
-    return tuning.computeAttributeCaps(heightInches, weightLb, wingspanInches);
+    final body = {'height': heightInches, 'weight': weightLb, 'wingspan': wingspanInches, 'position': pos.label};
+    final capsMap = website_logic.getCaps(body, this);
+    return List.generate(21, (i) => capsMap[website_logic.attrIds[i]] ?? 99);
   }
 
   List<int> getTokenBudget(int heightInches, List<int> ratings) {
@@ -294,7 +718,12 @@ class DatasetLoader {
   }
 
   double getOvr(Position pos, int heightInches, List<int> ratings) {
-    return tuning.computeOvr(heightInches, ratings, pos.label);
+    final body = {'height': heightInches, 'weight': 190, 'wingspan': heightInches + 3, 'position': pos.label};
+    final values = <String, int>{};
+    for (int i = 0; i < 21; i++) {
+      values[website_logic.attrIds[i]] = ratings[i];
+    }
+    return website_logic.calculateOvr(values, body, this);
   }
 
   BadgeTier? getHighestQualifiedTier(int badgeId, List<int> ratings) {
@@ -328,19 +757,5 @@ class DatasetLoader {
 
   int getBadgeTokenCost(int badgeId, BadgeTier tier, int heightInches) {
     return tokenCostMap[TokenCostKey(badgeId, tier, heightInches)] ?? 0;
-  }
-}
-
-class CapBreakerGain {
-  final int application;
-  final int gain;
-
-  const CapBreakerGain({required this.application, required this.gain});
-
-  factory CapBreakerGain.fromJson(Map<String, dynamic> json) {
-    return CapBreakerGain(
-      application: json['application'] as int,
-      gain: json['gain'] as int,
-    );
   }
 }

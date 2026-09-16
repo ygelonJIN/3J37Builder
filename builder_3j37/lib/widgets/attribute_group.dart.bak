@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../data/models/enums.dart';
 import '../data/models/attribute.dart';
 import '../data/models/badge_data.dart';
@@ -53,19 +52,17 @@ class AttributeGroups extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 8),
-              ...attrs.map((attr) {
-                return _AttributeControl(
-                  attribute: attr,
-                  value: state.ratings[attr.index],
-                  cap: caps[attr.index],
-                  colour: colour,
-                  onChanged: (v) => state.setRating(attr.index, v),
-                  isOvrMax: isOvrMax,
-                  isLocked: state.isAttributeLocked(attr.index),
-                  onToggleLock: () => state.toggleAttributeLock(attr.index),
-                  canAdjust: state.canAdjustAttribute(attr.index),
-                );
-              }),
+              ...attrs.map((attr) => _AttributeControl(
+                attribute: attr,
+                value: state.ratings[attr.index],
+                cap: caps[attr.index],
+                colour: colour,
+                onChanged: (v) => state.setRating(attr.index, v),
+                isOvrMax: isOvrMax,
+                isLocked: state.isAttributeLocked(attr.index),
+                onToggleLock: () => state.toggleAttributeLock(attr.index),
+                canAdjust: state.canAdjustAttribute(attr.index),
+              )),
             ],
           );
         }),
@@ -103,49 +100,12 @@ class _AttributeControl extends StatefulWidget {
 
 class _AttributeControlState extends State<_AttributeControl> {
   bool _expanded = false;
-  bool _xEditing = false;
-  late TextEditingController _xController;
-  final FocusNode _xFocus = FocusNode();
-
-  @override
-  void initState() {
-    super.initState();
-    _xController = TextEditingController(text: '${widget.value}');
-    _xFocus.addListener(_onXFocusChange);
-  }
-
-  @override
-  void didUpdateWidget(covariant _AttributeControl oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (!_xEditing && oldWidget.value != widget.value) {
-      _xController.text = '${widget.value}';
-    }
-  }
-
-  void _onXFocusChange() {
-    if (!_xFocus.hasFocus && _xEditing) {
-      final v = int.tryParse(_xController.text);
-      if (v != null) {
-        widget.onChanged(v.clamp(25, widget.cap));
-      } else {
-        _xController.text = '${widget.value}';
-      }
-      _xEditing = false;
-    }
-  }
-
-
-  @override
-  void dispose() {
-    _xController.dispose();
-    _xFocus.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
     final atCap = widget.value >= widget.cap;
     final bool isMaxed = widget.isOvrMax || atCap;
+    final bool shouldLock = widget.isLocked;
     final Color xColor = (isMaxed || widget.isLocked) ? AppTokens.keyOff : widget.colour;
     const Color yColor = AppTokens.keyOff;
 
@@ -157,10 +117,7 @@ class _AttributeControlState extends State<_AttributeControl> {
           child: Row(
             children: [
               GestureDetector(
-                onTap: () {
-                  FocusScope.of(context).unfocus();
-                  setState(() => _expanded = !_expanded);
-                },
+                onTap: () => setState(() => _expanded = !_expanded),
                 child: Container(
                   width: 170,
                   padding: const EdgeInsets.symmetric(vertical: 2),
@@ -181,9 +138,30 @@ class _AttributeControlState extends State<_AttributeControl> {
                 activeColor: widget.colour,
               ),
               const SizedBox(width: 4),
-              _buildNormalDisplay(xColor, yColor),
+              SizedBox(
+                width: 70,
+                child: Text.rich(
+                  TextSpan(children: [
+                    TextSpan(text: '${widget.value}', style: AppTokens.body.copyWith(color: xColor, fontSize: 12)),
+                    TextSpan(text: '/${widget.cap}', style: AppTokens.body.copyWith(color: yColor, fontSize: 12)),
+                  ]),
+                  textAlign: TextAlign.right,
+                ),
+              ),
               const SizedBox(width: 6),
-              _buildLockIcon(),
+              GestureDetector(
+                onTap: widget.onToggleLock,
+                child: Container(
+                  width: 20,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: widget.isLocked ? AppTokens.primary.withValues(alpha: 0.15) : AppTokens.surface,
+                    border: Border.all(color: widget.isLocked ? AppTokens.primary.withValues(alpha: 0.5) : AppTokens.keyOff.withValues(alpha: 0.3), width: 1),
+                    borderRadius: BorderRadius.circular(AppTokens.radius),
+                  ),
+                  child: Icon(shouldLock ? Icons.lock : Icons.lock_open, size: 14, color: widget.isLocked ? AppTokens.primary : AppTokens.keyOff.withValues(alpha: 0.5)),
+                ),
+              ),
             ],
           ),
         ),
@@ -192,77 +170,6 @@ class _AttributeControlState extends State<_AttributeControl> {
           _buildCapBreakers(context),
         ],
       ],
-    );
-  }
-
-
-  // ── Normal display: X input + /cap ────────────────────
-  Widget _buildNormalDisplay(Color xColor, Color yColor) {
-    return SizedBox(
-      width: 78,
-      height: 28,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          SizedBox(
-            width: 40,
-            height: 28,
-            child: TextField(
-              controller: _xController,
-              focusNode: _xFocus,
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              textAlign: TextAlign.center,
-              cursorWidth: 0,
-              style: AppTokens.body.copyWith(color: xColor, fontSize: 12, fontWeight: FontWeight.w600),
-              decoration: InputDecoration(
-                contentPadding: EdgeInsets.symmetric(horizontal: 4),
-                isDense: true,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppTokens.radius),
-                  borderSide: BorderSide(color: widget.colour.withValues(alpha: 0.3)),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppTokens.radius),
-                  borderSide: BorderSide(color: widget.colour.withValues(alpha: 0.2)),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppTokens.radius),
-                  borderSide: BorderSide(color: widget.colour, width: 1.5),
-                ),
-              ),
-              onTap: () {
-                _xEditing = true;
-                _xController.selection = TextSelection(baseOffset: 0, extentOffset: _xController.text.length);
-              },
-              onSubmitted: (_) {
-                final v = int.tryParse(_xController.text);
-                if (v != null) widget.onChanged(v.clamp(25, widget.cap));
-                _xEditing = false;
-              },
-            ),
-          ),
-          const SizedBox(width: 2),
-          Text('/', style: AppTokens.body.copyWith(color: yColor, fontSize: 12)),
-          Text('${widget.cap}', style: AppTokens.body.copyWith(color: yColor, fontSize: 12)),
-        ],
-      ),
-    );
-  }
-
-  // ── Lock icon ──────────────────────────────────────────
-  Widget _buildLockIcon() {
-    return GestureDetector(
-      onTap: widget.onToggleLock,
-      child: Container(
-        width: 20, height: 28,
-        decoration: BoxDecoration(
-          color: widget.isLocked ? AppTokens.primary.withValues(alpha: 0.15) : AppTokens.surface,
-          border: Border.all(color: widget.isLocked ? AppTokens.primary.withValues(alpha: 0.5) : AppTokens.keyOff.withValues(alpha: 0.3)),
-          borderRadius: BorderRadius.circular(AppTokens.radius),
-        ),
-        child: Icon(widget.isLocked ? Icons.lock : Icons.lock_open, size: 14, color: widget.isLocked ? AppTokens.primary : AppTokens.keyOff.withValues(alpha: 0.5)),
-      ),
     );
   }
 
@@ -341,20 +248,7 @@ class _AttributeControlState extends State<_AttributeControl> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(children: [
-            Text('Cap Breakers', style: AppTokens.caption.copyWith(fontSize: 10, color: AppTokens.textSecondary)),
-            const Spacer(),
-            Builder(builder: (ctx) {
-              try {
-                final allGains = ctx.read<BuilderState>().getCapBreakerSequence(widget.attribute.index);
-                final totalAllGains = allGains.fold<int>(0, (sum, g) => sum + g);
-                final fullMax = widget.cap + totalAllGains;
-                return Text('Max $fullMax', style: AppTokens.caption.copyWith(fontSize: 10, color: AppTokens.primary, fontWeight: FontWeight.w600));
-              } catch (_) {
-                return Text('Max ${widget.cap + gains.fold<int>(0, (sum, g) => sum + g)}', style: AppTokens.caption.copyWith(fontSize: 10, color: AppTokens.primary, fontWeight: FontWeight.w600));
-              }
-            }),
-          ]),
+          Text('Cap Breakers', style: AppTokens.caption.copyWith(fontSize: 10, color: AppTokens.textSecondary)),
           const SizedBox(height: 6),
           Row(children: List.generate(5, (index) {
             final isAvailable = index < gains.length;

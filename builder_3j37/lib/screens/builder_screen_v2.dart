@@ -58,14 +58,12 @@ class _BuilderScreenV2State extends State<BuilderScreenV2> {
   }
 
   Future<void> _initializeCapBreakerEngine() async {
-    try {
-      final data = await DefaultAssetBundle.of(context).loadString('assets/data/gains_by_rating.json');
-      final jsonData = json.decode(data) as Map<String, dynamic>;
-      final dataRows = (jsonData['data'] as List).cast<Map<String, dynamic>>();
-      _cbEngine.initialize(dataRows);
-      debugPrint('[BuilderScreenV2] Cap breaker engine initialized with ${dataRows.length} entries');
-    } catch (e) {
-      debugPrint('[BuilderScreenV2] Error initializing cap breaker engine: $e');
+    final loader = DatasetLoader();
+    if (loader.modelWeights != null && loader.modelCurves != null) {
+      CapBreakerEngine().loadModelData(loader.modelWeights!, loader.modelCurves!, overallScale: loader.modelOverallScale);
+      debugPrint('[BuilderScreenV2] Cap breaker model loaded: ${loader.modelWeights!.length} weights');
+    } else {
+      debugPrint('[BuilderScreenV2] Warning: No model data, using fallback calculation');
     }
   }
 
@@ -194,19 +192,16 @@ class _BuilderScreenV2State extends State<BuilderScreenV2> {
                     children: [
                       Expanded(
                         child: OverallDisplay(
-                          expanded: _cardExpanded,
                           onExpandedChanged: _onCardExpandedChanged,
                         ),
                       ),
                       const SizedBox(width: 8),
                       _buildPillButton(
-                        icon: Icons.shield_outlined,
                         label: 'Badges',
                         onTap: _openBadges,
                       ),
                       const SizedBox(width: 8),
                       _buildPillButton(
-                        icon: Icons.sports_basketball_outlined,
                         label: 'Moves',
                         onTap: _openMoves,
                       ),
@@ -387,7 +382,7 @@ class _BuilderScreenV2State extends State<BuilderScreenV2> {
   }
 
   Widget _buildPillButton({
-    required IconData icon,
+    IconData? icon,
     required String label,
     required VoidCallback onTap,
     bool highlight = false,
@@ -416,9 +411,11 @@ class _BuilderScreenV2State extends State<BuilderScreenV2> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 16, color: foreground),
-              if (label.isNotEmpty) ...[
-                const SizedBox(width: 6),
+              if (icon != null) ...[
+                Icon(icon, size: 16, color: foreground),
+                if (label.isNotEmpty) const SizedBox(width: 6),
+              ],
+              if (label.isNotEmpty)
                 Text(
                   label,
                   style: TextStyle(
@@ -428,7 +425,6 @@ class _BuilderScreenV2State extends State<BuilderScreenV2> {
                     fontFamily: AppTokens.fontFamily,
                   ),
                 ),
-              ],
             ],
           ),
         ),

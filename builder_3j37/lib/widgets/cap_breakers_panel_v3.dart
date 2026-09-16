@@ -3,7 +3,8 @@ import '../data/services/builder_state_v4.dart';
 import '../theme/app_tokens.dart';
 import 'package:provider/provider.dart';
 
-/// Interactive Cap Breakers panel with server data support
+/// Interactive Cap Breakers panel
+/// 使用解密模型数据计算，无服务端依赖
 class CapBreakersPanelV3 extends StatelessWidget {
   const CapBreakersPanelV3({super.key});
 
@@ -30,69 +31,27 @@ class CapBreakersPanelV3 extends StatelessWidget {
           children: [
             Text('Cap Breakers', style: AppTokens.cardTitleStyle.copyWith(fontSize: 14)),
             const Spacer(),
-            // Server data indicator
-            if (state.isUsingServerData)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.green.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: Colors.green.withValues(alpha: 0.5)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.cloud_done, size: 12, color: Colors.green),
-                    const SizedBox(width: 4),
-                    Text(
-                      'Live Data',
-                      style: TextStyle(fontSize: 10, color: Colors.green),
-                    ),
-                  ],
-                ),
-              )
-            else
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.orange.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: Colors.orange.withValues(alpha: 0.5)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.storage, size: 12, color: Colors.orange),
-                    const SizedBox(width: 4),
-                    Text(
-                      'Local Data',
-                      style: TextStyle(fontSize: 10, color: Colors.orange),
-                    ),
-                  ],
-                ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.green.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: Colors.green.withValues(alpha: 0.5)),
               ),
-            const SizedBox(width: 8),
-            // Fetch from server button
-            TextButton.icon(
-              onPressed: state.isLoadingServerData 
-                  ? null 
-                  : () => _fetchFromServer(context, state),
-              icon: state.isLoadingServerData
-                  ? SizedBox(
-                      width: 12,
-                      height: 12,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Icon(Icons.refresh, size: 16),
-              label: Text(
-                state.isLoadingServerData ? 'Loading...' : 'Fetch Live',
-                style: TextStyle(fontSize: 12),
-              ),
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.memory, size: 12, color: Colors.green),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Model Data',
+                    style: TextStyle(fontSize: 10, color: Colors.green),
+                  ),
+                ],
               ),
             ),
-            if (state.hasAnyCapBreakers)
+            if (state.hasAnyCapBreakers) ...[
+              const SizedBox(width: 8),
               TextButton.icon(
                 onPressed: () => _showClearAllDialog(context, state),
                 icon: const Icon(Icons.clear_all, size: 16),
@@ -101,6 +60,7 @@ class CapBreakersPanelV3 extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 ),
               ),
+            ],
           ],
         ),
         const SizedBox(height: 4),
@@ -108,14 +68,6 @@ class CapBreakersPanelV3 extends StatelessWidget {
           'Apply up to 5 cap breakers per attribute to exceed the physical cap.',
           style: AppTokens.caption.copyWith(fontSize: 11),
         ),
-        if (!state.isUsingServerData)
-          Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Text(
-              'Tap "Fetch Live" to get accurate values for your build.',
-              style: AppTokens.caption.copyWith(fontSize: 10, color: Colors.orange),
-            ),
-          ),
         if (state.hasAnyCapBreakers) ...[
           const SizedBox(height: 4),
           Text(
@@ -128,215 +80,173 @@ class CapBreakersPanelV3 extends StatelessWidget {
           ),
         ],
         const SizedBox(height: 12),
-        ...attributesWithPotential.map((i) => _buildAttributeRow(context, state, i)),
+        ...attributesWithPotential.map((attrIndex) => _buildAttributeRow(context, state, attrIndex)),
       ],
     );
-  }
-
-  Future<void> _fetchFromServer(BuildContext context, BuilderStateV4 state) async {
-    final success = await state.fetchServerData();
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(success 
-              ? 'Live data fetched successfully!' 
-              : 'Failed to fetch live data. Using local data.'),
-          duration: Duration(seconds: 2),
-          backgroundColor: success ? Colors.green : Colors.orange,
-        ),
-      );
-    }
   }
 
   Widget _buildAttributeRow(BuildContext context, BuilderStateV4 state, int attrIndex) {
     final attrState = state.getAttributeState(attrIndex);
     final nextGain = state.getNextCapBreakerGain(attrIndex);
-    final appliedGains = attrState.appliedGains;
-    final canApply = state.canApplyCapBreaker(attrIndex);
+    final canApply = nextGain != null;
     
-    final attrName = _attrName(attrIndex);
-    final categoryColor = _getCategoryColor(attrIndex);
-
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: AppTokens.surfaceAlt,
-          border: Border.all(
-            color: attrState.hasCapBreakers 
-                ? AppTokens.primary.withValues(alpha: 0.5)
-                : AppTokens.cardBorder.withValues(alpha: 0.3),
-          ),
-          borderRadius: BorderRadius.circular(AppTokens.radius),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        attrName,
-                        style: AppTokens.body.copyWith(
-                          fontSize: 12, 
-                          fontWeight: FontWeight.w600,
-                          color: categoryColor,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Row(
-                        children: [
-                          Text(
-                            'Base: ${attrState.baseValue}',
-                            style: AppTokens.caption.copyWith(fontSize: 10),
-                          ),
-                          if (attrState.hasCapBreakers) ...[
-                            Text(
-                              ' + ${attrState.capBreakerGain} CB',
-                              style: AppTokens.caption.copyWith(
-                                fontSize: 10,
-                                color: AppTokens.primary,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                          Text(
-                            ' / Cap: ${attrState.baseCap}',
-                            style: AppTokens.caption.copyWith(fontSize: 10),
-                          ),
-                        ],
-                      ),
-                    ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 4,
+                height: 16,
+                decoration: BoxDecoration(
+                  color: _getCategoryColor(attrIndex),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  _attrName(attrIndex),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppTokens.textPrimary,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-                Container(
+              ),
+              Text(
+                '${attrState.finalValue}',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: canApply ? AppTokens.primary : AppTokens.keyOff,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                '/${attrState.baseCap}',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: _getCategoryColor(attrIndex),
+                ),
+              ),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: canApply ? () => _applyCapBreaker(context, state, attrIndex) : null,
+                child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: attrState.hasCapBreakers 
-                        ? AppTokens.primary.withValues(alpha: 0.15)
-                        : AppTokens.surface,
+                    color: canApply 
+                        ? AppTokens.primary.withValues(alpha: 0.2)
+                        : AppTokens.keyOff.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(4),
                     border: Border.all(
-                      color: attrState.hasCapBreakers 
-                          ? AppTokens.primary 
-                          : AppTokens.cardBorder.withValues(alpha: 0.3),
+                      color: canApply 
+                          ? AppTokens.primary.withValues(alpha: 0.5)
+                          : AppTokens.keyOff.withValues(alpha: 0.2),
                     ),
                   ),
                   child: Text(
-                    '${attrState.finalValue}',
-                    style: AppTokens.body.copyWith(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: attrState.hasCapBreakers 
-                          ? AppTokens.primary 
-                          : AppTokens.body.color,
+                    canApply ? '+$nextGain' : 'MAX',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: canApply ? AppTokens.primary : AppTokens.keyOff,
+                      fontWeight: FontWeight.w600,
                     ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: List.generate(5, (index) {
+              final isApplied = index < attrState.appliedGains.length;
+              final gain = isApplied ? attrState.appliedGains[index] : null;
+              
+              return Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: GestureDetector(
+                  onTap: isApplied ? () => _removeCapBreaker(context, state, attrIndex) : null,
+                  child: Container(
+                    width: 32,
+                    height: 20,
+                    decoration: BoxDecoration(
+                      color: isApplied 
+                          ? _getTierColor(index).withValues(alpha: 0.3)
+                          : AppTokens.keyOff.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(3),
+                      border: Border.all(
+                        color: isApplied 
+                            ? _getTierColor(index)
+                            : AppTokens.keyOff.withValues(alpha: 0.2),
+                      ),
+                    ),
+                    child: Center(
+                      child: isApplied
+                          ? Text(
+                              '+${attrState.appliedGains[index]}',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            )
+                          : gain != null
+                              ? Text(
+                                  '+$gain',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: _getTierColor(index),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                )
+                              : Icon(
+                                  Icons.lock,
+                                  size: 12,
+                                  color: AppTokens.keyOff,
+                                ),
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ),
+          if (attrState.hasCapBreakers) ...[
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => state.removeCapBreaker(attrIndex),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text(
+                    'Undo Last',
+                    style: TextStyle(fontSize: 10, color: AppTokens.keyOff),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                TextButton(
+                  onPressed: () => state.removeAllCapBreakers(attrIndex),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text(
+                    'Remove All',
+                    style: TextStyle(fontSize: 10, color: Colors.red),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            Row(
-              children: List.generate(5, (index) {
-                final isApplied = index < appliedGains.length;
-                final gain = isApplied ? appliedGains[index] : (index == appliedGains.length ? nextGain : null);
-                final isUsable = isApplied || (index == appliedGains.length && canApply);
-                
-                return Expanded(
-                  child: GestureDetector(
-                    onTap: isUsable && !isApplied 
-                        ? () => _applyCapBreaker(context, state, attrIndex)
-                        : isApplied 
-                            ? () => _removeCapBreaker(context, state, attrIndex)
-                            : null,
-                    child: Container(
-                      margin: EdgeInsets.only(right: index < 4 ? 4 : 0),
-                      height: 28,
-                      decoration: BoxDecoration(
-                        color: isApplied 
-                            ? _getTierColor(index)
-                            : isUsable 
-                                ? _getTierColor(index).withValues(alpha: 0.15)
-                                : AppTokens.surface,
-                        border: Border.all(
-                          color: isApplied 
-                              ? _getTierColor(index)
-                              : isUsable 
-                                  ? _getTierColor(index).withValues(alpha: 0.5)
-                                  : AppTokens.keyOff.withValues(alpha: 0.3),
-                          width: isUsable ? 1.5 : 1,
-                        ),
-                        borderRadius: BorderRadius.circular(3),
-                      ),
-                      child: Center(
-                        child: isApplied
-                            ? Text(
-                                '+${appliedGains[index]}',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              )
-                            : gain != null
-                                ? Text(
-                                    '+$gain',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      color: _getTierColor(index),
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  )
-                                : Icon(
-                                    Icons.lock,
-                                    size: 12,
-                                    color: AppTokens.keyOff,
-                                  ),
-                      ),
-                    ),
-                  ),
-                );
-              }),
-            ),
-            if (attrState.hasCapBreakers) ...[
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () => state.removeCapBreaker(attrIndex),
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    child: Text(
-                      'Undo Last',
-                      style: TextStyle(fontSize: 10, color: AppTokens.keyOff),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  TextButton(
-                    onPressed: () => state.removeAllCapBreakers(attrIndex),
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    child: Text(
-                      'Remove All',
-                      style: TextStyle(fontSize: 10, color: Colors.red),
-                    ),
-                  ),
-                ],
-              ),
-            ],
           ],
-        ),
+        ],
       ),
     );
   }

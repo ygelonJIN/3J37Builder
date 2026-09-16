@@ -33,6 +33,7 @@
 **核心文件：**
 - `tuning/progression_attributes.txt` — 16,114 行完整 tuning 数据
 - `bodies/legal_bodies.json` — 5 个位置的合法身高/体重/臂展范围
+- `bodies/attribute_caps_sample.json` — PG 参考体型的 21 个属性上限（验证样本）
 - `reference/attributes.json` — 21 个属性定义
 - `badges/` — 53 个徽章定义、tier 要求、token 消耗
 - `cap_breakers/gains_by_rating.json` — Cap Breakers 增益数据
@@ -53,7 +54,7 @@ builder_3j37/
 │   │   │   ├── badge_data.dart      # BadgeDef, TierRequirement, TokenCost
 │   │   │   └── animation_data.dart  # AnimTab, AnimGroup, AnimEntry
 │   │   └── services/
-│   │       ├── tuning_parser.dart   # 解析 tuning 数据，OVR 计算
+│   │       ├── tuning_parser.dart   # 解析 tuning 数据，属性上限计算，OVR 计算
 │   │       ├── dataset_loader.dart  # 加载所有 JSON 数据集
 │   │       └── builder_state.dart   # 状态管理（Provider），徽章自动降级
 │   ├── screens/
@@ -125,8 +126,10 @@ ovr = outMin + (raw - inMin) / (inMax - inMin) * (outMax - outMin)
 
 ### 属性上限
 ```
-cap = round(25 + 74 × HeightMultiplier × WeightMultiplier × WingspanMultiplier)
+cap = clamp(round(25 + 74 × HeightMult × WeightMult × WingspanMult), 25, 99)
 ```
+- 使用 NBA-only 数据（不包含 WNBA），21/21 与游戏实际值完全匹配
+- 验证数据：`bodies/attribute_caps_sample.json`
 
 ## UI 规范
 
@@ -176,3 +179,57 @@ cd "/Volumes/TUF ESD-T1A Media/3J37 Builder/builder_3j37"
 - Provider 状态管理
 - Google Fonts（思源宋体）
 - 全屏沉浸式 + 渐变遮罩布局
+
+---
+
+## ⚠️ 已知问题：Cap Breakers 增益体型依赖
+
+### 问题描述
+
+`gains_by_rating.json` 数据集只包含**一个参考体型**（PG, 6'3/198lbs/6'6臂展）的增益数据。Cap Breaker 增益取决于实际体型（身高、体重、臂展），不同体型有不同的增益值。
+
+**验证数据（用户实际测试 vs App显示）：**
+
+中锋 6'11/253lbs/7'2臂展，所有属性25：
+
+| 属性 | 游戏实际值 | App显示（PG参考） | 差异 |
+|------|-----------|-------------------|------|
+| Close Shot | 6,5,5,5,5 | 9,8,7,6,6 | ✗ |
+| Free Throw | 13,12,10,8,6 | 14,12,10,8,7 | ✗ |
+| 3PT | 1,1,1,1,1 | 9,9,7,7,6 | ✗ |
+| Speed | 4,4,4,4,3 | 2,2,2,2,2 | ✗ |
+
+### 根因分析
+
+1. **增益计算函数**：`ATTRIBUTES_GetCapBreakerBoostValuesForAttrAtIndex`（游戏引擎内部函数）
+   - 输入：属性索引 + 玩家体型 + 所有属性状态
+   - 输出：5次 cap breaker 应用的增益值
+   - 该函数不在 tuning 文件中，是游戏引擎内部逻辑
+
+2. **tuning 文件不包含增益公式**：
+   - `progression_attributes.txt` 包含：属性上限乘数、archetype 权重、OVR 计算参数
+   - **不包含**：cap breaker 增益计算公式
+   - 增益由游戏引擎根据"winning archetype"动态计算
+
+3. **游戏二进制无法提取公式**：
+   - Windows 版 `NBA2K27.exe` 不导出游戏逻辑函数（仅导出 GPU 选择函数）
+   - IFF 归档使用 VCZ 压缩（Visual Concepts 专有格式），无法解压
+   - 增益数据不是静态表，是运行时计算的
+
+4. **Cap Breaker 上限 = 物理上限（已验证）**：
+   - 所有21个属性的 cap breaker 增益在达到物理上限 - 1 时停止
+   - 与 `attribute_caps_sample.json` 中的值完全匹配（差值为1，四舍五入原因）
+
+### 可能的解决方案
+
+1. **Native Probe（推荐）**：使用 Android 版 NBA 2K HQ app，通过 `dlopen`/`dlsym` 调用 `ATTRIBUTES_GetCapBreakerBoostValuesForAttrAtIndex`，为多个体型提取完整增益数据。需要 rooted 设备或模拟器。
+
+2. **DLL 注入**：将 DLL 注入 Windows 游戏进程，调用内部函数获取增益。需要游戏运行时执行。
+
+3. **手动测试**：在游戏中创建不同体型的球员，逐个测试所有属性的 cap breaker 增益。
+
+### 当前状态
+
+- 属性上限计算：✓ 完全正确（21/21 匹配）
+- OVR 计算：✓ 完全正确
+- Cap Breaker 增益：✗ 仅对 PG 参考体型准确，其他体型不准确

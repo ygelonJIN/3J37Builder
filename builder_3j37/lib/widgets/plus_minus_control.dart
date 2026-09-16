@@ -90,6 +90,7 @@ class _PlusMinusControlState extends State<PlusMinusControl> {
 
   void _updateValue(bool isIncrement) {
     if (!_enabled) return;
+    FocusScope.of(context).unfocus();
     final newValue = isIncrement 
         ? (widget.value + 1).clamp(widget.min, widget.max)
         : (widget.value - 1).clamp(widget.min, widget.max);

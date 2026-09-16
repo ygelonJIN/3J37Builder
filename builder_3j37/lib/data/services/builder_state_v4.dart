@@ -6,7 +6,6 @@ import '../models/cap_breaker.dart';
 import 'dataset_loader.dart';
 import 'tuning_parser.dart';
 import 'cap_breaker_engine.dart';
-import 'cap_breaker_hybrid.dart';
 
 class BadgeStatus {
   final BadgeDef badge;
@@ -48,7 +47,6 @@ class AttributeState {
 class BuilderStateV4 extends ChangeNotifier {
   final DatasetLoader _loader = DatasetLoader();
   final CapBreakerEngine _cbEngine = CapBreakerEngine();
-  late final CapBreakerHybrid _cbHybrid;
 
   Position _position = Position.pg;
   int _heightInches = 75;
@@ -61,13 +59,8 @@ class BuilderStateV4 extends ChangeNotifier {
   List<int> _physicalCaps = List.filled(21, 99);
   List<bool> _userTouched = List.filled(21, false);
   Map<int, BadgeTier?> _equippedBadges = {};
-  
-  bool _serverDataLoaded = false;
-  bool _isLoadingServerData = false;
 
-  BuilderStateV4() {
-    _cbHybrid = CapBreakerHybrid(_cbEngine);
-  }
+  BuilderStateV4();
 
   // Getters
   Position get position => _position;
@@ -79,8 +72,6 @@ class BuilderStateV4 extends ChangeNotifier {
   List<bool> get userTouched => List.unmodifiable(_userTouched);
   Map<int, BadgeTier?> get equippedBadges => Map.unmodifiable(_equippedBadges);
   List<int> get physicalCaps => List.unmodifiable(_physicalCaps);
-  bool get isUsingServerData => _cbHybrid.isUsingServerData;
-  bool get isLoadingServerData => _isLoadingServerData;
 
   String get heightDisplay {
     final feet = _heightInches ~/ 12;
@@ -98,6 +89,23 @@ class BuilderStateV4 extends ChangeNotifier {
 
   int get overallRating => _loader.getOvr(_position, _heightInches, _finalRatings).round();
 
+  /// 构建当前身体参数
+  CapBreakerBody get _currentBody => CapBreakerBody(
+    position: _position.label,
+    height: _heightInches,
+    weight: _weightLb,
+    wingspan: _wingspanInches,
+  );
+
+  /// 构建当前所有属性值 (base + cap breaker gains)
+  Map<String, int> get _currentValues {
+    final values = <String, int>{};
+    for (int i = 0; i < 21; i++) {
+      values[CapBreakerEngine.getAttributeId(i)] = _finalRatings[i];
+    }
+    return values;
+  }
+
   AttributeState getAttributeState(int attrIndex) {
     final appliedGains = _appliedCapBreakers[attrIndex] ?? [];
     final totalGain = appliedGains.fold(0, (sum, g) => sum + g);
@@ -114,17 +122,21 @@ class BuilderStateV4 extends ChangeNotifier {
     final appliedCount = _appliedCapBreakers[attrIndex]?.length ?? 0;
     if (appliedCount >= 5) return null;
     
+    final appliedGains = _appliedCapBreakers[attrIndex];
     final currentRating = _baseRatings[attrIndex] + 
-        (_appliedCapBreakers[attrIndex]?.fold(0, (sum, g) => sum + g) ?? 0);
+        (appliedGains != null ? appliedGains.fold<int>(0, (sum, g) => sum + g) : 0);
     
-    if (currentRating >= 99) return null;
+    // 使用物理上限而非固定99
+    if (currentRating >= _physicalCaps[attrIndex]) return null;
     
-    final scenario = CapBreakerEngine.suggestScenario(currentRating, _physicalCaps[attrIndex]);
-    return _cbHybrid.getGain(
-      attribute: attrIndex,
-      rating: currentRating,
-      application: appliedCount,
-      scenario: scenario,
+    // 使用模型数据计算, 必须传入完整构建状态
+    return _cbEngine.getNextGain(
+      attrIndex,
+      currentRating,
+      appliedCount,
+      values: _currentValues,
+      body: _currentBody,
+      physicalCaps: _physicalCaps,
     );
   }
 
@@ -175,39 +187,6 @@ class BuilderStateV4 extends ChangeNotifier {
   }
 
   bool get hasAnyCapBreakers => _appliedCapBreakers.isNotEmpty;
-
-  /// Fetch cap breaker data from server for current build
-  Future<bool> fetchServerData() async {
-    if (_isLoadingServerData) return false;
-    
-    _isLoadingServerData = true;
-    notifyListeners();
-    
-    try {
-      final success = await _cbHybrid.fetchFromServer(
-        height: _heightInches,
-        weight: _weightLb,
-        wingspan: _wingspanInches,
-        position: _position.code,
-        attributes: _baseRatings,
-      );
-      
-      _serverDataLoaded = success;
-      _isLoadingServerData = false;
-      notifyListeners();
-      
-      if (success) {
-        // Recalculate with new data
-        _recalculateFinalRatings();
-      }
-      
-      return success;
-    } catch (e) {
-      _isLoadingServerData = false;
-      notifyListeners();
-      return false;
-    }
-  }
 
   void setPosition(Position pos) {
     if (_position == pos) return;

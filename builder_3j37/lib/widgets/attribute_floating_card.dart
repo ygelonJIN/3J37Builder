@@ -25,6 +25,7 @@ class _AttributeFloatingCardState extends State<AttributeFloatingCard> {
   bool _expanded = false;
 
   void _toggleExpanded() {
+    FocusScope.of(context).unfocus();
     setState(() {
       _expanded = !_expanded;
       widget.onExpandedChanged?.call(_expanded);

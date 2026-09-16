@@ -115,29 +115,43 @@ class BuilderStateV2 extends ChangeNotifier {
   /// 
   /// 这是新的正确实现，每次增益基于前一次的结果
   List<int> getCapBreakerGainSequence(int attrIndex) {
-    final scenario = _suggestScenario(attrIndex);
-    return _loader.getChainedGains(
-      attrIndex, 
-      _baseRatings[attrIndex],
-      scenario: scenario,
+    final engine = CapBreakerEngine();
+    final values = <String, int>{};
+    for (int i = 0; i < 21; i++) {
+      values[CapBreakerEngine.getAttributeId(i)] = _baseRatings[i] + _capBreakerState.getTotalGain(i);
+    }
+    final body = CapBreakerBody(
+      position: _position.name.toUpperCase(),
+      height: _heightInches,
+      weight: _weightLb,
+      wingspan: _wingspanInches,
     );
+    return engine.getChainedGains(attrIndex, _baseRatings[attrIndex], values: values, body: body, physicalCaps: _physicalCaps);
   }
 
   /// 获取某个属性的完整 cap breaker 应用结果
-  CapBreakerResult getCapBreakerResult(int attrIndex) {
-    final scenario = _suggestScenario(attrIndex);
-    return _loader.applyCapBreakers(
-      attrIndex, 
-      _baseRatings[attrIndex],
-      scenario: scenario,
+  /// 获取某个属性的完整增益序列
+  List<int> getCapBreakerGains(int attrIndex) {
+    final engine = CapBreakerEngine();
+    final values = <String, int>{};
+    for (int i = 0; i < 21; i++) {
+      values[CapBreakerEngine.getAttributeId(i)] = _baseRatings[i] + _capBreakerState.getTotalGain(i);
+    }
+    final body = CapBreakerBody(
+      position: _position.name.toUpperCase(),
+      height: _heightInches,
+      weight: _weightLb,
+      wingspan: _wingspanInches,
     );
+    return engine.getChainedGains(attrIndex, _baseRatings[attrIndex], values: values, body: body, physicalCaps: _physicalCaps);
   }
 
-  /// 建议使用哪个场景
-  String _suggestScenario(int attrIndex) {
-    final cap = _physicalCaps[attrIndex];
-    final rating = _baseRatings[attrIndex];
-    return rating >= cap - 20 ? 'near_caps' : 'isolated';
+  /// 获取某个属性可用的增益序列（已应用的除外）
+  List<int> getAvailableCapBreakerGains(int attrIndex) {
+    final allGains = getCapBreakerGains(attrIndex);
+    final appliedCount = _capBreakerState.getAppliedCount(attrIndex);
+    if (appliedCount >= allGains.length) return [];
+    return allGains.sublist(appliedCount);
   }
 
   /// Check if a cap breaker can be applied to an attribute
@@ -202,6 +216,12 @@ class BuilderStateV2 extends ChangeNotifier {
   }
 
   /// Clear all cap breakers
+  void removeAllCapBreakers(int attrIndex) {
+    _capBreakerState.removeAll(attrIndex);
+    _recalculateFinalRatings();
+    notifyListeners();
+  }
+
   void clearAllCapBreakers() {
     _capBreakerState.clear();
     _recalculateFinalRatings();
