@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import '../models/enums.dart';
 import '../models/badge_data.dart';
+import '../models/goal_data.dart';
 import 'dataset_loader.dart';
 import 'cap_breaker_engine.dart';
 import 'website_logic.dart' as website_logic;
@@ -17,6 +18,9 @@ class BuilderState extends ChangeNotifier {
   final Set<int> _lockedAttributes = {}; // 锁定的属性索引
   final Map<int, List<int>> _appliedCapBreakers = {}; // attrIndex -> list of gains
   final CapBreakerEngine _cbEngine = CapBreakerEngine();
+  
+  // Goal state
+  GoalData _goalData = const GoalData();
 
   Position get position => _position;
   int get heightInches => _heightInches;
@@ -25,6 +29,8 @@ class BuilderState extends ChangeNotifier {
   List<int> get ratings => List.unmodifiable(_ratings);
   Map<int, BadgeTier?> get equippedBadges => Map.unmodifiable(_equippedBadges);
   Set<int> get lockedAttributes => Set.unmodifiable(_lockedAttributes);
+  GoalData get goalData => _goalData;
+  DatasetLoader get loader => _loader;
 
   BuilderState() {
     _userRatings = List.filled(21, 25);
@@ -49,6 +55,7 @@ class BuilderState extends ChangeNotifier {
     _userRatings = List.filled(21, 25);
     _ratings = List.filled(21, 25);
     _lockedAttributes.clear();
+    _goalData = const GoalData(); // Reset goal data when position changes
     notifyListeners();
   }
 
@@ -78,6 +85,100 @@ class BuilderState extends ChangeNotifier {
 
   bool canAdjustAttribute(int attrIndex) {
     return !_lockedAttributes.contains(attrIndex);
+  }
+
+  // Goal management methods
+  void updateGoalBadges(List<GoalBadge> badges) {
+    _goalData = _goalData.copyWith(badges: badges);
+    notifyListeners();
+  }
+
+  void updateGoalMoves(List<GoalMove> moves) {
+    _goalData = _goalData.copyWith(moves: moves);
+    notifyListeners();
+  }
+
+  void addGoalBadge(GoalBadge badge) {
+    final updatedBadges = List<GoalBadge>.from(_goalData.badges)..add(badge);
+    _goalData = _goalData.copyWith(badges: updatedBadges);
+    notifyListeners();
+  }
+
+  void removeGoalBadge(int badgeId) {
+    final updatedBadges = _goalData.badges.where((b) => b.badgeId != badgeId).toList();
+    _goalData = _goalData.copyWith(badges: updatedBadges);
+    notifyListeners();
+  }
+
+  void addGoalMove(GoalMove move) {
+    final updatedMoves = List<GoalMove>.from(_goalData.moves)..add(move);
+    _goalData = _goalData.copyWith(moves: updatedMoves);
+    notifyListeners();
+  }
+
+  void removeGoalMove(String moveId) {
+    final updatedMoves = _goalData.moves.where((m) => m.moveId != moveId).toList();
+    _goalData = _goalData.copyWith(moves: updatedMoves);
+    notifyListeners();
+  }
+
+  bool hasGoalBadge(int badgeId) {
+    return _goalData.badges.any((b) => b.badgeId == badgeId);
+  }
+
+  bool hasGoalMove(String moveId) {
+    return _goalData.moves.any((m) => m.moveId == moveId);
+  }
+
+  GoalBadge? getGoalBadge(int badgeId) {
+    try {
+      return _goalData.badges.firstWhere((b) => b.badgeId == badgeId);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  GoalMove? getGoalMove(String moveId) {
+    try {
+      return _goalData.moves.firstWhere((m) => m.moveId == moveId);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  String? validateGoalBadge(int badgeId, int targetValue) {
+    final badge = _loader.badgeDefinitions.firstWhere(
+      (b) => b.badgeId == badgeId,
+      orElse: () => BadgeDef(badgeId: badgeId, name: '', discipline: Discipline.finishing, group: 0, minHeight: 0, maxHeight: 99, allowed: false),
+    );
+    
+    // Check height eligibility
+    if (!badge.isHeightEligible(_heightInches)) {
+      return 'Badge not eligible for current height';
+    }
+    
+    // Check if badge is allowed
+    if (!badge.allowed) {
+      return 'Badge not allowed';
+    }
+    
+    // Check if target value exceeds cap
+    final highestTier = _loader.getHighestQualifiedTier(badgeId, _ratings);
+    if (highestTier != null) {
+      final tierIndex = BadgeTier.values.indexOf(highestTier);
+      final targetTierIndex = BadgeTier.values.indexOf(BadgeTierX.fromKey(targetValue.toString()));
+      if (targetTierIndex > tierIndex) {
+        return 'Target tier exceeds maximum unlocked tier';
+      }
+    }
+    
+    return null;
+  }
+
+  String? validateGoalMove(String moveId, int targetValue) {
+    // This would need to be implemented based on move validation logic
+    // For now, return null (no error)
+    return null;
   }
 
   /// 验证属性修改是否会违反锁定属性的约束
@@ -198,133 +299,33 @@ class BuilderState extends ChangeNotifier {
     for (int i = 0; i < 21; i++) {
       capsMap[website_logic.attrIds[i]] = caps[i];
     }
-
-    // 只对被修改的属性应用一次约束传播（与网站一致）
-    if (changedAttrIndex >= 0) {
-      final values = <String, int>{};
-      for (int i = 0; i < 21; i++) {
-        values[website_logic.attrIds[i]] = _userRatings[i];
-      }
-      final result = website_logic.applyConstraints(
-        values: values,
-        changedAttrId: website_logic.attrIds[changedAttrIndex],
-        body: body,
-        loader: _loader,
-        caps: capsMap,
-      );
-      final constrained = result['values'] as Map<String, int>;
-      for (int i = 0; i < 21; i++) {
-        final cv = (constrained[website_logic.attrIds[i]] ?? 25).clamp(25, caps[i]);
-        if (cv > _ratings[i]) _ratings[i] = cv;
-      }
-    }
-
-    // Check OVR budget (与网站 ge 函数逻辑一致)
-    final ovr = website_logic.calculateOvr(_ratings.asMap().map((k, v) => MapEntry(website_logic.attrIds[k], v)), body, _loader);
-    if (ovr >= 99.0) {
-      // 对每个属性单独进行二分搜索（与网站一致）
-      for (int i = 0; i < 21; i++) {
-        if (_userRatings[i] > 25 && !_lockedAttributes.contains(i)) {
-          final currentVal = _userRatings[i];
-          int lo = 25, hi = currentVal, best = 25;
-          
-          while (lo <= hi) {
-            final mid = (lo + hi) ~/ 2;
-            // 创建测试值映射，只修改当前属性
-            final testValues = Map<String, int>.from(
-              _userRatings.asMap().map((k, v) => MapEntry(website_logic.attrIds[k], v))
-            );
-            testValues[website_logic.attrIds[i]] = mid;
-            
-            // 只对当前属性调用 applyConstraints（与网站 ne 函数一致）
-            final result = website_logic.applyConstraints(
-              values: testValues,
-              changedAttrId: website_logic.attrIds[i],
-              body: body,
-              loader: _loader,
-              caps: capsMap,
-            );
-            final constrained = result['values'] as Map<String, int>;
-            
-            // 计算约束后的 OVR
-            final testOvr = website_logic.calculateOvr(constrained, body, _loader);
-            if (testOvr < 99.0) {
-              best = mid;
-              lo = mid + 1;
-            } else {
-              hi = mid - 1;
-            }
-          }
-          _userRatings[i] = best;
-        }
-      }
-      
-      // 重新计算最终 ratings（只对被修改的属性应用约束）
-      if (changedAttrIndex >= 0) {
-        final finalValues = <String, int>{};
-        for (int i = 0; i < 21; i++) {
-          finalValues[website_logic.attrIds[i]] = _userRatings[i];
-        }
-        final result = website_logic.applyConstraints(
-          values: finalValues,
-          changedAttrId: website_logic.attrIds[changedAttrIndex],
-          body: body,
-          loader: _loader,
-          caps: capsMap,
-        );
-        final constrained = result['values'] as Map<String, int>;
-        for (int i = 0; i < 21; i++) {
-          final cv = (constrained[website_logic.attrIds[i]] ?? 25).clamp(25, caps[i]);
-          if (cv > _ratings[i]) _ratings[i] = cv;
-        }
-      }
-    }
   }
 
-  // ===== Cap Breaker Methods =====
-
-  int get totalCapBreakersApplied {
-    return _appliedCapBreakers.values.fold(0, (sum, gains) => sum + gains.length);
+  List<int> getCapBreakerGain() {
+    return List.generate(21, (i) {
+      final gains = _appliedCapBreakers[i];
+      if (gains == null || gains.isEmpty) return 0;
+      return gains.reduce((a, b) => a + b);
+    });
   }
 
-  bool get hasAnyCapBreakers => _appliedCapBreakers.isNotEmpty;
-
-  int get capBreakerGainTotal {
-    return _appliedCapBreakers.values.fold(0, (sum, gains) => sum + gains.fold(0, (s, g) => s + g));
-  }
-
-  int getCapBreakerGain(int attrIndex) {
+  int getCapBreakerGainForAttr(int attrIndex) {
     final gains = _appliedCapBreakers[attrIndex];
     if (gains == null || gains.isEmpty) return 0;
-    return gains.fold(0, (sum, g) => sum + g);
+    return gains.reduce((a, b) => a + b);
   }
 
   int getAppliedCapBreakerCount(int attrIndex) {
-    return _appliedCapBreakers[attrIndex]?.length ?? 0;
+    final gains = _appliedCapBreakers[attrIndex];
+    return gains?.length ?? 0;
   }
 
-  int? getNextCapBreakerGain(int attrIndex) {
-    final appliedCount = _appliedCapBreakers[attrIndex]?.length ?? 0;
-    if (appliedCount >= 5) return null;
-    final currentRating = _ratings[attrIndex] + getCapBreakerGain(attrIndex);
-    final physCaps = getAttributeCaps();
-    if (currentRating >= physCaps[attrIndex]) return null;
-    // Build current values map for model-based calculation
-    final values = <String, int>{};
-    for (int i = 0; i < 21; i++) {
-      values[CapBreakerEngine.getAttributeId(i)] = _ratings[i] + getCapBreakerGain(i);
-    }
-    return _cbEngine.getNextGain(attrIndex, currentRating, appliedCount, values: values, body: capBreakerBody, physicalCaps: physCaps);
-  }
-
-  bool canApplyCapBreaker(int attrIndex) {
-    return getNextCapBreakerGain(attrIndex) != null;
-  }
-
-  bool applyCapBreaker(int attrIndex) {
-    final gain = getNextCapBreakerGain(attrIndex);
-    if (gain == null) return false;
-    _appliedCapBreakers.putIfAbsent(attrIndex, () => []);
+  bool applyCapBreaker(int attrIndex, int gain) {
+    if (!_cbEngine.hasModelData) return false;
+    final currentGain = getCapBreakerGainForAttr(attrIndex);
+    if (currentGain + gain > 5) return false;
+    
+    _appliedCapBreakers[attrIndex] ??= [];
     _appliedCapBreakers[attrIndex]!.add(gain);
     notifyListeners();
     return true;
@@ -353,7 +354,7 @@ class BuilderState extends ChangeNotifier {
     if (!_cbEngine.hasModelData) return [];
     final values = <String, int>{};
     for (int i = 0; i < 21; i++) {
-      values[CapBreakerEngine.getAttributeId(i)] = _ratings[i] + getCapBreakerGain(i);
+      values[CapBreakerEngine.getAttributeId(i)] = _ratings[i] + getCapBreakerGainForAttr(i);
     }
     return _cbEngine.getChainedGains(attrIndex, _ratings[attrIndex], values: values, body: capBreakerBody, physicalCaps: getAttributeCaps());
   }
@@ -373,8 +374,9 @@ class BuilderState extends ChangeNotifier {
   // Get final ratings including cap breaker gains
   List<int> get finalRatings {
     final result = List<int>.from(_ratings);
+    final caps = getAttributeCaps();
     for (int i = 0; i < 21; i++) {
-      result[i] = (_ratings[i] + getCapBreakerGain(i)).clamp(25, 99);
+      result[i] = (_ratings[i] + getCapBreakerGainForAttr(i)).clamp(25, caps[i]);
     }
     return result;
   }
@@ -428,8 +430,9 @@ class BuilderState extends ChangeNotifier {
   int get overallRating {
     final body = {'height': _heightInches, 'weight': _weightLb, 'wingspan': _wingspanInches, 'position': _position.name.toUpperCase()};
     final values = <String, int>{};
+    final finalVals = finalRatings;
     for (int i = 0; i < 21; i++) {
-      values[website_logic.attrIds[i]] = _ratings[i];
+      values[website_logic.attrIds[i]] = finalVals[i];
     }
     return website_logic.calculateOvr(values, body, _loader).round().clamp(25, 99);
   }

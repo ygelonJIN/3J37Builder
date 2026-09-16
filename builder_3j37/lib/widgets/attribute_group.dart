@@ -144,18 +144,17 @@ class _AttributeControlState extends State<_AttributeControl> {
         if (mounted) _suppressExpand = false;
       });
       final state = context.read<BuilderState>();
-      final appliedGain = state.getCapBreakerGain(widget.attribute.index);
+      final appliedGain = state.getCapBreakerGainForAttr(widget.attribute.index);
       final displayValue = widget.value + appliedGain;
 
       final v = int.tryParse(_xController.text);
+      final clampedDisplay = (widget.value + appliedGain).clamp(25, widget.cap);
       if (v != null) {
         if (widget.isLocked) {
           _showError('${widget.attribute.displayName}已锁定');
-          _xController.text = '${widget.value + appliedGain}';
+          _xController.text = '$clampedDisplay';
         } else if (v > widget.cap) {
           _showError('Max ${widget.cap}');
-        } else if (v < 25) {
-          _showError('Min 25');
         } else {
           final baseValue = v - appliedGain;
           final error = widget.validateChanged?.call(baseValue.clamp(25, widget.cap));
@@ -170,7 +169,7 @@ class _AttributeControlState extends State<_AttributeControl> {
           }
         }
       } else {
-        _xController.text = '${widget.value + appliedGain}';
+        _xController.text = '${(widget.value + appliedGain).clamp(25, widget.cap)}';
       }
       _xEditing = false;
     }
@@ -185,13 +184,13 @@ class _AttributeControlState extends State<_AttributeControl> {
     _errorTimer = Timer(const Duration(seconds: 2), () {
       if (mounted) {
         final state = context.read<BuilderState>();
-        final appliedGain = state.getCapBreakerGain(widget.attribute.index);
-        final displayValue = widget.value + appliedGain;
+        final appliedGain = state.getCapBreakerGainForAttr(widget.attribute.index);
+        final clampedDisplay = (widget.value + appliedGain).clamp(25, widget.cap);
         setState(() {
           _hasError = false;
           _errorMessage = '';
         });
-        _xController.text = '${widget.value + appliedGain}';
+        _xController.text = '$clampedDisplay';
       }
     });
   }
@@ -209,17 +208,26 @@ class _AttributeControlState extends State<_AttributeControl> {
   @override
   Widget build(BuildContext context) {
     final state = context.read<BuilderState>();
-    final appliedGain = state.getCapBreakerGain(widget.attribute.index);
+    final appliedGain = state.getCapBreakerGainForAttr(widget.attribute.index);
     final displayValue = widget.value + appliedGain;
     
-    // Update controller text if not editing
+    // Update controller text if not editing (clamped to physical cap)
     if (!_xEditing) {
-      _xController.text = '${widget.value + appliedGain}';
+      _xController.text = '${(widget.value + appliedGain).clamp(25, widget.cap)}';
     }
     
     final atCap = widget.value >= widget.cap;
     final bool isMaxed = widget.isOvrMax || atCap;
-    final Color xColor = (isMaxed || widget.isLocked) ? AppTokens.keyOff : widget.colour;
+    // Make X value brighter when cap breakers are applied
+    final Color xColor;
+    if (isMaxed || widget.isLocked) {
+      xColor = AppTokens.keyOff;
+    } else if (appliedGain > 0) {
+      // Brighter color for cap-broken values
+      xColor = AppTokens.primary;
+    } else {
+      xColor = widget.colour;
+    }
     const Color yColor = AppTokens.keyOff;
 
     return Column(
@@ -462,7 +470,7 @@ class _AttributeControlState extends State<_AttributeControl> {
     final gains = state.getCapBreakerSequence(widget.attribute.index);
     final appliedCount = state.getAppliedCapBreakerCount(widget.attribute.index);
     final totalAllGains = gains.fold<int>(0, (sum, g) => sum + g);
-    final fullMax = cap + totalAllGains;
+    final maxValue = rating + totalAllGains;
 
     return Container(
       width: double.infinity,
@@ -475,7 +483,7 @@ class _AttributeControlState extends State<_AttributeControl> {
           Row(children: [
             Text('Cap Breakers', style: AppTokens.caption.copyWith(fontSize: 10, color: AppTokens.textSecondary)),
             const Spacer(),
-            Text('Max $fullMax', style: AppTokens.caption.copyWith(fontSize: 10, color: AppTokens.primary, fontWeight: FontWeight.w600)),
+            Text('Max $maxValue', style: AppTokens.caption.copyWith(fontSize: 10, color: AppTokens.primary, fontWeight: FontWeight.w600)),
           ]),
           const SizedBox(height: 6),
           Row(children: List.generate(5, (index) {
@@ -483,7 +491,7 @@ class _AttributeControlState extends State<_AttributeControl> {
             final gain = isAvailable ? gains[index] : null;
             final isApplied = index < appliedCount;
             final isNext = index == appliedCount && gain != null;
-            final canApply = gain != null && (rating + _calculateTotalGain(gains, index)) <= cap;
+            final canApply = gain != null;
             return Expanded(
               child: GestureDetector(
                 onTap: () {
@@ -492,13 +500,10 @@ class _AttributeControlState extends State<_AttributeControl> {
                     for (int i = appliedCount - 1; i >= index; i--) {
                       state.removeCapBreaker(widget.attribute.index);
                     }
-                  } else if (isNext && canApply) {
-                    // Apply this cap breaker
-                    state.applyCapBreaker(widget.attribute.index);
-                  } else if (gain != null && index > appliedCount) {
-                    // Apply all cap breakers up to this index
+                  } else if (gain != null && index >= appliedCount) {
+                    // Apply cap breakers up to this index
                     for (int i = appliedCount; i <= index; i++) {
-                      if (!state.applyCapBreaker(widget.attribute.index)) break;
+                      if (i < gains.length && !state.applyCapBreaker(widget.attribute.index, gains[i])) break;
                     }
                   }
                 },
@@ -506,8 +511,8 @@ class _AttributeControlState extends State<_AttributeControl> {
                   margin: EdgeInsets.only(right: index < 4 ? 4 : 0),
                   height: 24,
                   decoration: BoxDecoration(
-                    color: isApplied ? AppTokens.primary.withValues(alpha: 0.3) : isNext && canApply ? AppTokens.primary.withValues(alpha: 0.1) : AppTokens.surface,
-                    border: Border.all(color: isApplied ? AppTokens.primary : isNext && canApply ? AppTokens.primary.withValues(alpha: 0.5) : AppTokens.keyOff.withValues(alpha: 0.3), width: isApplied ? 2 : 1),
+                    color: isApplied ? AppTokens.primary.withValues(alpha: 0.1) : AppTokens.surface,
+                    border: Border.all(color: isApplied ? AppTokens.primary.withValues(alpha: 0.5) : AppTokens.keyOff.withValues(alpha: 0.3), width: isApplied ? 1.5 : 1),
                     borderRadius: BorderRadius.circular(2),
                   ),
                   child: Center(child: isAvailable && gain != null ? Text('+$gain', style: AppTokens.caption.copyWith(fontSize: 10, color: isApplied ? AppTokens.primary : AppTokens.textSecondary, fontWeight: isApplied ? FontWeight.w700 : FontWeight.w600)) : Icon(Icons.lock, size: 12, color: AppTokens.keyOff)),

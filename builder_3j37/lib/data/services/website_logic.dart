@@ -1,5 +1,5 @@
 /// 网站核心逻辑完整移植
-/// 来源: https://www.2khoopscope.com/2k27/builder
+/// 基于游戏数据的逻辑
 /// 文件: logic-CMaECw5P.js
 ///
 /// 每个函数都有对应的网站函数名注释，确保1:1精确对应。

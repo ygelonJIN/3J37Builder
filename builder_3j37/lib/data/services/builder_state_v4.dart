@@ -328,7 +328,7 @@ class BuilderStateV4 extends ChangeNotifier {
     for (int i = 0; i < 21; i++) {
       final base = _baseRatings[i];
       final cbGain = _appliedCapBreakers[i]?.fold(0, (sum, g) => sum + g) ?? 0;
-      _finalRatings[i] = (base + cbGain).clamp(25, 99);
+      _finalRatings[i] = (base + cbGain).clamp(25, _physicalCaps[i]);
     }
   }
 

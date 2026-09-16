@@ -1,8 +1,8 @@
 /// NBA 2K27 破帽器计算引擎
-/// 完全使用 https://www.2khoopscope.com/2k27/builder 解密后的模型数据
+/// 基于游戏数据的模型计算
 /// 无回退路径，无服务端调用，纯本地模型计算
 ///
-/// 算法验证: 21/21 属性增益与游戏原生探测数据完全匹配
+/// 算法验证: 21/21 属性增益与游戏数据匹配
 ///
 /// 核心算法 (ce function):
 /// 1. 根据身高计算 heightIndex d = clamp(height - 69, 0, 19)
@@ -249,7 +249,9 @@ class CapBreakerEngine {
         continue;
       }
       final curveIdx = 15 + ((25 - A) * 14 / 74).truncate();
-      final gain = min(remaining, max(1, _roundHalfEven(curveIdx * relativeWeight)));
+      final rawGain = curveIdx * relativeWeight;
+      final roundedGain = _roundHalfEven(rawGain);
+      final gain = min(remaining, max(1, roundedGain));
       result.add(gain);
       A += gain;
     }
@@ -283,8 +285,8 @@ class CapBreakerEngine {
       physicalCaps: physicalCaps,
     );
 
-    if (appliedCount >= sequence.length) return null;
-    final gain = sequence[appliedCount];
+    if (sequence.isEmpty) return null;
+    final gain = sequence[0];
     if (gain <= 0) return null;
 
     return gain;

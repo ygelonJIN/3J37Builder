@@ -8,6 +8,7 @@ import '../widgets/attribute_group.dart';
 import '../widgets/badge_panel.dart';
 import '../widgets/animation_panel.dart';
 import '../widgets/overall_display.dart';
+import '../widgets/goal_card.dart';
 import 'dart:convert';
 
 class BuilderScreenV2 extends StatefulWidget {
@@ -154,6 +155,8 @@ class _BuilderScreenV2State extends State<BuilderScreenV2> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    const GoalCard(),
+                    const SizedBox(height: 12),
                     const AttributeGroups(),
                   ],
                 ),

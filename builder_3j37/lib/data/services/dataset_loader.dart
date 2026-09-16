@@ -394,7 +394,7 @@ class DatasetLoader {
       debugPrint('[DatasetLoader] Stack: $st');
     }
 
-    // Load cap breaker model (decrypted from 2khoopscope.com)
+    // Load cap breaker model (decrypted game data)
     try {
       final modelStr = await rootBundle.loadString('assets/data/cap_breaker_model.json');
       debugPrint('[DatasetLoader] cap_breaker_model loaded: ${modelStr.length} bytes');

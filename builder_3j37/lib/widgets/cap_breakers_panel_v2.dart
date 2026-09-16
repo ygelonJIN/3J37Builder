@@ -70,7 +70,7 @@ class CapBreakersPanelV2 extends StatelessWidget {
 
   Widget _buildAttributeRow(BuildContext context, BuilderStateV2 state, int attrIndex) {
     final attrState = state.getAttributeState(attrIndex);
-    final availableGains = state.getAvailableCapBreakerGains(attrIndex);
+    // availableGains no longer used - slots use getNextCapBreakerGain directly
     final appliedGains = state.capBreakerState.getAppliedGains(attrIndex);
     final canApply = state.canApplyCapBreaker(attrIndex);
     
@@ -167,8 +167,11 @@ class CapBreakersPanelV2 extends StatelessWidget {
             Row(
               children: List.generate(5, (index) {
                 final isApplied = index < appliedGains.length;
-                final isAvailable = index < availableGains.length;
-                final gain = isAvailable ? availableGains[index] : 0;
+                // Slot is available if: not yet applied, can still apply more, and within 5 max
+                final isAvailable = !isApplied && canApply && index >= appliedGains.length && index < 5;
+                // Get gain: for applied slots use stored gain, for available slots use next gain
+                final gain = isApplied ? appliedGains[index] : 
+                             (isAvailable ? (state.getNextCapBreakerGain(attrIndex) ?? 0) : 0);
                 
                 // Calculate what the value would be after this CB
                 int valueAfter = attrState.baseValue;
@@ -183,8 +186,8 @@ class CapBreakersPanelV2 extends StatelessWidget {
                 bool isUsable = false;
                 if (isApplied) {
                   isUsable = true; // Already applied
-                } else if (isAvailable && canApply && index == appliedGains.length) {
-                  isUsable = true; // Next available slot
+                } else if (isAvailable && canApply && index >= appliedGains.length) {
+                  isUsable = true; // All remaining available slots
                 }
                 
                 return Expanded(

@@ -126,7 +126,9 @@ class BuilderStateV2 extends ChangeNotifier {
       weight: _weightLb,
       wingspan: _wingspanInches,
     );
-    return engine.getChainedGains(attrIndex, _baseRatings[attrIndex], values: values, body: body, physicalCaps: _physicalCaps);
+    // Use current value (base + applied gains) as starting point
+    final currentValue = _baseRatings[attrIndex] + _capBreakerState.getTotalGain(attrIndex);
+    return engine.getChainedGains(attrIndex, currentValue, values: values, body: body, physicalCaps: _physicalCaps);
   }
 
   /// 获取某个属性的完整 cap breaker 应用结果
@@ -143,7 +145,9 @@ class BuilderStateV2 extends ChangeNotifier {
       weight: _weightLb,
       wingspan: _wingspanInches,
     );
-    return engine.getChainedGains(attrIndex, _baseRatings[attrIndex], values: values, body: body, physicalCaps: _physicalCaps);
+    // Use current value (base + applied gains) as starting point
+    final currentValue = _baseRatings[attrIndex] + _capBreakerState.getTotalGain(attrIndex);
+    return engine.getChainedGains(attrIndex, currentValue, values: values, body: body, physicalCaps: _physicalCaps);
   }
 
   /// 获取某个属性可用的增益序列（已应用的除外）
@@ -159,37 +163,66 @@ class BuilderStateV2 extends ChangeNotifier {
     final appliedCount = _capBreakerState.getAppliedCount(attrIndex);
     if (appliedCount >= 5) return false;
     
-    // 获取当前增益序列
-    final gains = getCapBreakerGainSequence(attrIndex);
-    if (appliedCount >= gains.length) return false;
-    
-    final gain = gains[appliedCount];
+    // 获取当前值（基础值 + 已应用破帽数）
     final currentTotal = _capBreakerState.getTotalGain(attrIndex);
+    final currentRating = _baseRatings[attrIndex] + currentTotal;
     
-    // 检查是否会超过上限
-    if (_baseRatings[attrIndex] + currentTotal + gain > _physicalCaps[attrIndex]) {
-      return false;
+    // 直接检查当前值是否低于物理上限（原始代码逻辑）
+    if (currentRating >= _physicalCaps[attrIndex]) return false;
+    
+    // 检查下一个增益是否会导致超过上限
+    final gains = getCapBreakerGainSequence(attrIndex);
+    if (appliedCount < gains.length) {
+      final gain = gains[appliedCount];
+      if (currentRating + gain > _physicalCaps[attrIndex]) return false;
     }
     
     return true;
+  }
+
+  /// 获取下一个破帽数的增益值（实时计算）
+  int? getNextCapBreakerGain(int attrIndex) {
+    final appliedCount = _capBreakerState.getAppliedCount(attrIndex);
+    if (appliedCount >= 5) return null;
+    
+    final currentTotal = _capBreakerState.getTotalGain(attrIndex);
+    final currentRating = _baseRatings[attrIndex] + currentTotal;
+    
+    if (currentRating >= _physicalCaps[attrIndex]) return null;
+    
+    // 使用模型实时计算增益
+    final gains = getCapBreakerGainSequence(attrIndex);
+    if (appliedCount >= gains.length) {
+      // 序列不足时，返回剩余空间作为增益（保底）
+      return (_physicalCaps[attrIndex] - currentRating).clamp(1, 99);
+    }
+    
+    final gain = gains[appliedCount];
+    return gain > 0 ? gain : 1;
   }
 
   /// Apply a cap breaker to an attribute
   /// 使用链式逻辑：每次应用的增益基于当前 rating
   bool applyCapBreaker(int attrIndex) {
     final appliedCount = _capBreakerState.getAppliedCount(attrIndex);
+    if (appliedCount >= 5) return false;
     
-    // 获取当前增益序列
-    final gains = getCapBreakerGainSequence(attrIndex);
-    if (appliedCount >= gains.length) return false;
-    
-    final gain = gains[appliedCount];
     final currentTotal = _capBreakerState.getTotalGain(attrIndex);
+    final currentRating = _baseRatings[attrIndex] + currentTotal;
     
-    // 检查是否会超过上限
-    if (_baseRatings[attrIndex] + currentTotal + gain > _physicalCaps[attrIndex]) {
-      return false;
+    if (currentRating >= _physicalCaps[attrIndex]) return false;
+    
+    // 使用模型实时计算增益
+    final gains = getCapBreakerGainSequence(attrIndex);
+    int gain = 1;
+    if (appliedCount < gains.length) {
+      gain = gains[appliedCount];
+    } else {
+      // 序列不足时，使用剩余空间
+      gain = (_physicalCaps[attrIndex] - currentRating).clamp(1, 99);
     }
+    
+    if (gain <= 0) return false;
     
     _capBreakerState.apply(attrIndex, gain);
     _recalculateFinalRatings();
@@ -290,7 +323,7 @@ class BuilderStateV2 extends ChangeNotifier {
     for (int i = 0; i < 21; i++) {
       final base = _baseRatings[i];
       final cbGain = _capBreakerState.getTotalGain(i);
-      _finalRatings[i] = (base + cbGain).clamp(25, 99);
+      _finalRatings[i] = (base + cbGain).clamp(25, _physicalCaps[i]);
     }
   }
 

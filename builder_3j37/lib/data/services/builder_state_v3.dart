@@ -3,6 +3,7 @@ import '../models/enums.dart';
 import '../models/attribute.dart';
 import '../models/badge_data.dart';
 import '../models/cap_breaker.dart';
+import '../models/goal_data.dart';
 import 'dataset_loader.dart';
 import 'tuning_parser.dart';
 import 'cap_breaker_engine.dart';
@@ -82,6 +83,9 @@ class BuilderStateV3 extends ChangeNotifier {
   final Map<int, int> _goalRatings = {};
   final Set<int> _goalActive = {};
 
+  // Goal data for badges and moves
+  GoalData _goalData = const GoalData();
+
   Map<int, BadgeTier?> _equippedBadges = {};
 
   // Getters
@@ -94,6 +98,8 @@ class BuilderStateV3 extends ChangeNotifier {
   List<bool> get userTouched => List.unmodifiable(_userTouched);
   Map<int, BadgeTier?> get equippedBadges => Map.unmodifiable(_equippedBadges);
   List<int> get physicalCaps => List.unmodifiable(_physicalCaps);
+  GoalData get goalData => _goalData;
+  DatasetLoader get loader => _loader;
 
   String get heightDisplay {
     final feet = _heightInches ~/ 12;
@@ -353,7 +359,7 @@ class BuilderStateV3 extends ChangeNotifier {
     for (int i = 0; i < 21; i++) {
       final base = _baseRatings[i];
       final cbGain = _appliedCapBreakers[i]?.fold(0, (sum, g) => sum + g) ?? 0;
-      _finalRatings[i] = (base + cbGain).clamp(25, 99);
+      _finalRatings[i] = (base + cbGain).clamp(25, _physicalCaps[i]);
     }
   }
 
@@ -531,6 +537,57 @@ class BuilderStateV3 extends ChangeNotifier {
     notifyListeners();
   }
 
+  // GoalData management methods
+  void addGoalBadge(GoalBadge badge) {
+    _goalData = _goalData.copyWith(
+      badges: [..._goalData.badges, badge],
+    );
+    notifyListeners();
+  }
+
+  void removeGoalBadge(int badgeId) {
+    _goalData = _goalData.copyWith(
+      badges: _goalData.badges.where((b) => b.badgeId != badgeId).toList(),
+    );
+    notifyListeners();
+  }
+
+  void addGoalMove(GoalMove move) {
+    _goalData = _goalData.copyWith(
+      moves: [..._goalData.moves, move],
+    );
+    notifyListeners();
+  }
+
+  void removeGoalMove(String moveId) {
+    _goalData = _goalData.copyWith(
+      moves: _goalData.moves.where((m) => m.moveId != moveId).toList(),
+    );
+    notifyListeners();
+  }
+
+  bool hasGoalBadge(int badgeId) {
+    return _goalData.badges.any((b) => b.badgeId == badgeId);
+  }
+
+  bool hasGoalMove(String moveId) {
+    return _goalData.moves.any((m) => m.moveId == moveId);
+  }
+
+  String? validateGoalBadge(int badgeId, int targetValue) {
+    // Badge tiers: bronze(1), silver(2), gold(3), hallOfFame(4), legend(5)
+    if (targetValue < 1 || targetValue > 5) {
+      return 'Target value must be between 1 and 5';
+    }
+    return null;
+  }
+  String? validateGoalMove(String moveId, int targetValue) {
+    // For moves, we need to check against the move's max value
+    // This would depend on the move data structure
+    // For now, return null (no validation)
+    return null;
+  }
+
   // ── Cap breaker sequence ──────────────────────────────
   CapBreakerBody get capBreakerBody => CapBreakerBody(
     position: _position.name.toUpperCase(),
@@ -545,7 +602,10 @@ class BuilderStateV3 extends ChangeNotifier {
       values[CapBreakerEngine.getAttributeId(i)] = _baseRatings[i] +
           ((_appliedCapBreakers[i]?.fold<int>(0, (s, g) => s + g)) ?? 0);
     }
-    return _cbEngine.getChainedGains(attrIndex, _baseRatings[attrIndex],
+    // Use current value (base + applied gains) as starting point
+    final currentValue = _baseRatings[attrIndex] +
+        ((_appliedCapBreakers[attrIndex]?.fold<int>(0, (s, g) => s + g)) ?? 0);
+    return _cbEngine.getChainedGains(attrIndex, currentValue,
         values: values, body: capBreakerBody, physicalCaps: _physicalCaps);
   }
 

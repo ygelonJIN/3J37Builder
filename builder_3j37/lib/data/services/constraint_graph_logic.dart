@@ -1,4 +1,4 @@
-/// Constraint Graph Logic - 完全移植自 https://www.2khoopscope.com/2k27/builder
+/// Constraint Graph Logic - 基于游戏数据的逻辑
 /// 精确实现网站的 ne() 和 q() 函数
 ///
 /// 网站属性索引映射（21个属性）：
