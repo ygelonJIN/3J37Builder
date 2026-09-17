@@ -296,7 +296,7 @@ class _AttributeControlState extends State<_AttributeControl> {
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        '${widget.goalValue ?? widget.value}',
+                        '${widget.goalValue ?? widget.value}${appliedGain > 0 ? '+$appliedGain' : ''}',
                         style: TextStyle(
                           fontFamily: AppTokens.fontFamily,
                           fontSize: 10,

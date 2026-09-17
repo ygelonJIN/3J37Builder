@@ -84,14 +84,13 @@ class _GoalCardState extends State<GoalCard> {
             _buildAddButton(),
           ],
 
-          // ── Attribute requirements (always shown, wraps) ──
-          if (goalData.badges.isNotEmpty || goalData.moves.isNotEmpty) ...[
-            const SizedBox(height: 2),
-            _buildAttrReqsSummary(goalData),
-          ],
-
           // ── Expanded content (constrained height) ─────────
           if (_expanded) ...[
+            const SizedBox(height: 4),
+            if (goalData.badges.isNotEmpty || goalData.moves.isNotEmpty || goalData.attributes.isNotEmpty) ...[
+              _buildAttrReqsSummary(goalData),
+              const SizedBox(height: 4),
+            ],
             const Divider(height: 1, color: AppTokens.keyOff),
             ConstrainedBox(
               constraints: const BoxConstraints(maxHeight: 250),
