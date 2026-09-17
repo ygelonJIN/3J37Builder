@@ -70,6 +70,7 @@ class AttributeGroups extends StatelessWidget {
                   canAdjust: state.canAdjustAttribute(attr.index),
                   isGoalActive: state.isGoalActive(attr.index),
                   goalValue: state.getGoalRating(attr.index),
+                  onRemoveCapBreaker: () => state.removeCapBreaker(attr.index),
                 );
               }),
             ],
@@ -93,6 +94,7 @@ class _AttributeControl extends StatefulWidget {
   final bool canAdjust;
   final bool isGoalActive;
   final int? goalValue;
+  final VoidCallback? onRemoveCapBreaker;
 
   const _AttributeControl({
     required this.attribute,
@@ -107,6 +109,7 @@ class _AttributeControl extends StatefulWidget {
     required this.canAdjust,
     this.isGoalActive = false,
     this.goalValue,
+    this.onRemoveCapBreaker,
   });
 
   @override
@@ -228,7 +231,7 @@ class _AttributeControlState extends State<_AttributeControl> {
     final bool isMaxed = widget.isOvrMax || atCap;
     // Make X value brighter when cap breakers are applied
     final Color xColor;
-    if (isMaxed || widget.isLocked) {
+    if (widget.isLocked) {
       xColor = AppTokens.keyOff;
     } else if (appliedGain > 0) {
       // Brighter color for cap-broken values
@@ -259,7 +262,7 @@ class _AttributeControlState extends State<_AttributeControl> {
                   padding: const EdgeInsets.symmetric(vertical: 2),
                   child: Row(
                     children: [
-                      Expanded(child: Text(widget.attribute.displayName, style: AppTokens.caption.copyWith(color: isMaxed ? AppTokens.keyOff : AppTokens.textPrimary, fontSize: 11))),
+                      Expanded(child: Text(widget.attribute.displayName, style: AppTokens.caption.copyWith(color: (isMaxed && appliedGain == 0) ? AppTokens.keyOff : AppTokens.textPrimary, fontSize: 11))),
                       Icon(_expanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down, size: 16, color: AppTokens.textSecondary),
                     ],
                   ),
@@ -271,7 +274,7 @@ class _AttributeControlState extends State<_AttributeControl> {
                   padding: const EdgeInsets.only(right: 16),
                   child: Text(
                     _errorMessage,
-                    style: AppTokens.caption.copyWith(color: Colors.red, fontSize: 11, fontWeight: FontWeight.w600),
+                    style: AppTokens.caption.copyWith(color: Colors.red, fontSize: 10, fontWeight: FontWeight.w600),
                   ),
                 )
               else if (widget.isGoalActive) ...[
@@ -319,10 +322,18 @@ class _AttributeControlState extends State<_AttributeControl> {
               else ...[
                 PlusMinusControl(
                   value: widget.value,
-                  min: 25 + appliedGain,
+                  min: 25,
                   max: widget.cap,
                   onChanged: widget.canAdjust ? (v) {
-                    final baseValue = v - appliedGain;
+                    // With cap breakers: block decrease and prompt to remove them
+                    // Covers: at cap (value==cap) or at floor (base==25)
+                    final baseVal = widget.value - appliedGain;
+                    if (v < widget.value && appliedGain > 0 &&
+                        (widget.value >= widget.cap || baseVal <= 25)) {
+                      _showError('Remove Cap Breaker first');
+                      return;
+                    }
+                    final baseValue = (v - appliedGain).clamp(25, widget.cap);
                     final error = widget.validateChanged?.call(baseValue);
                     if (error == null) {
                       widget.onChanged(baseValue);
@@ -516,10 +527,11 @@ class _AttributeControlState extends State<_AttributeControl> {
     final rating = widget.value;
     final cap = widget.cap;
     final headroom = cap - rating;
-    if (headroom <= 0) return const SizedBox.shrink();
+    final appliedCount = state.getAppliedCapBreakerCount(widget.attribute.index);
+    // Don't hide when there are applied cap breakers — user needs to see and remove them
+    if (headroom <= 0 && appliedCount == 0) return const SizedBox.shrink();
 
     final gains = state.getCapBreakerSequence(widget.attribute.index, attrCap: widget.cap);
-    final appliedCount = state.getAppliedCapBreakerCount(widget.attribute.index);
     final totalAllGains = gains.fold<int>(0, (sum, g) => sum + g);
     final maxValue = state.baseRatings[widget.attribute.index] + totalAllGains;
 

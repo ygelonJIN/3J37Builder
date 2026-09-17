@@ -74,7 +74,7 @@ class _OverallDisplayState extends State<OverallDisplay> {
                     fontFamily: AppTokens.fontFamily,
                     fontSize: 10,
                     fontWeight: FontWeight.w300,
-                    color: AppTokens.textSecondary,
+                    color: AppTokens.primary,
                     letterSpacing: 0.2,
                   ),
                   overflow: TextOverflow.ellipsis,
