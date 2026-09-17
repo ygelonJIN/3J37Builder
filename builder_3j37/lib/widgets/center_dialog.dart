@@ -44,9 +44,7 @@ class CenterDialog extends StatelessWidget {
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(AppTokens.radius),
-                  child: SingleChildScrollView(
-                    child: child,
-                  ),
+                  child: child,
                 ),
               ),
             ),

@@ -232,12 +232,13 @@ class _AnimEntryWidget extends StatelessWidget {
 
     CenterDialog.show(
       context: context,
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             Row(
               children: [
                 Icon(
@@ -295,7 +296,8 @@ class _AnimEntryWidget extends StatelessWidget {
               }),
             ],
             const SizedBox(height: 16),
-          ],
+            ],
+          ),
         ),
       ),
     );

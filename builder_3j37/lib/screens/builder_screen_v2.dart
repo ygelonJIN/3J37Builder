@@ -220,14 +220,14 @@ class _BuilderScreenV2State extends State<BuilderScreenV2> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Goal card (top)
+                      GoalCard(
+                        onExpandedChanged: _onGoalExpandedChanged,
+                      ),
+                      const SizedBox(height: 8),
                       // Body data card (OverallDisplay)
                       OverallDisplay(
                         onExpandedChanged: _onCardExpandedChanged,
-                      ),
-                      const SizedBox(height: 8),
-                      // Goal card (below body card, same spacing)
-                      GoalCard(
-                        onExpandedChanged: _onGoalExpandedChanged,
                       ),
                       const SizedBox(height: 8),
                       // Badges / Moves pill buttons

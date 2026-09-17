@@ -79,7 +79,7 @@ class _BuilderScreenState extends State<BuilderScreen> {
     final isAtTop = offset <= 0;
     
     if (!isAtTop && oldExpanded != expanded) {
-      final adjustment = expanded ? 150.0 : -150.0;
+      final adjustment = expanded ? 155.0 : -155.0;
       if (_scrollController.hasClients) {
         _scrollController.jumpTo(offset + adjustment);
       }
@@ -113,7 +113,7 @@ class _BuilderScreenState extends State<BuilderScreen> {
     final isAtTop = offset <= 0;
     
     if (!isAtTop && oldExpanded != expanded) {
-      final adjustment = expanded ? 200.0 : -200.0;
+      final adjustment = expanded ? 60.0 : -60.0;
       if (_scrollController.hasClients) {
         _scrollController.jumpTo(offset + adjustment);
       }
@@ -231,14 +231,14 @@ class _BuilderScreenState extends State<BuilderScreen> {
                               onExpandedChanged: _onCardExpandedChanged,
                             ),
                             const SizedBox(height: 8),
+                            GoalCard(
+                              onExpandedChanged: _onGoalExpandedChanged,
+                            ),
+                            const SizedBox(height: 8),
                             AttributeFloatingCard(
                               lockedAttributes: state.lockedAttributes,
                               onToggleLock: state.toggleAttributeLock,
                               onExpandedChanged: _onMinimapExpandedChanged,
-                            ),
-                            const SizedBox(height: 8),
-                            GoalCard(
-                              onExpandedChanged: _onGoalExpandedChanged,
                             ),
                           ],
                         ),

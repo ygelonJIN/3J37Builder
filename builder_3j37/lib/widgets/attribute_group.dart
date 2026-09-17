@@ -365,7 +365,7 @@ class _AttributeControlState extends State<_AttributeControl> {
             child: TextField(
               controller: _xController,
               focusNode: _xFocus,
-              keyboardType: TextInputType.number,
+              textInputAction: TextInputAction.done,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               textAlign: TextAlign.center,
               textAlignVertical: TextAlignVertical.center,

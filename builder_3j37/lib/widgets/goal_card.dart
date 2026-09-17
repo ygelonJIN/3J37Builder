@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../data/models/goal_data.dart';
 import '../data/models/animation_data.dart';
 import '../data/services/dataset_loader.dart';
@@ -37,9 +38,7 @@ class _GoalCardState extends State<GoalCard> {
     final moveCount = goalData.moveCount;
     final attrCount = goalData.attributeCount;
 
-    return AnimatedContainer(
-      duration: AppTokens.animShort,
-      curve: AppTokens.curveOut,
+    return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
       decoration: BoxDecoration(
         color: AppTokens.surfaceAlt,
@@ -62,7 +61,7 @@ class _GoalCardState extends State<GoalCard> {
                 children: [
                   Row(
                     children: [
-                      Text('GOAL', style: AppTokens.brandMark.copyWith(fontSize: 18, letterSpacing: 2, color: AppTokens.textSecondary)),
+                      Text('GOAL', style: AppTokens.brandMark.copyWith(fontSize: 14, letterSpacing: 2, color: AppTokens.textSecondary)),
                       const Spacer(),
                       Text('Badges:$badgeCount', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 9, fontWeight: FontWeight.w500, color: AppTokens.textSecondary)),
                       const SizedBox(width: 8),
@@ -73,28 +72,34 @@ class _GoalCardState extends State<GoalCard> {
                       Icon(_expanded ? Icons.expand_less : Icons.expand_more, size: 16, color: AppTokens.textSecondary),
                     ],
                   ),
-                  // Show attribute requirements summary
-                  if (goalData.badges.isNotEmpty || goalData.moves.isNotEmpty) ...[
-                    const SizedBox(height: 2),
-                    _buildAttrReqsSummary(goalData),
-                  ],
+
                 ],
               ),
             ),
           ),
 
+          // ── Add button (fixed, not scrollable) ───────────
+          if (_expanded) ...[
+            const SizedBox(height: 4),
+            _buildAddButton(),
+          ],
+
+          // ── Attribute requirements (always shown, wraps) ──
+          if (goalData.badges.isNotEmpty || goalData.moves.isNotEmpty) ...[
+            const SizedBox(height: 2),
+            _buildAttrReqsSummary(goalData),
+          ],
+
           // ── Expanded content (constrained height) ─────────
           if (_expanded) ...[
             const Divider(height: 1, color: AppTokens.keyOff),
             ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 60, maxHeight: 250),
+              constraints: const BoxConstraints(maxHeight: 250),
               child: SingleChildScrollView(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const SizedBox(height: 8),
-                    _buildAddButton(),
                     const SizedBox(height: 8),
                     if (goalData.badges.isNotEmpty) ...[
                       _buildSectionHeader('Badges'),
@@ -135,23 +140,37 @@ class _GoalCardState extends State<GoalCard> {
       }
     }
     if (combinedReqs.isEmpty) return const SizedBox.shrink();
-    
-    final reqTexts = combinedReqs.entries.map((e) {
+
+    final reqChips = combinedReqs.entries.map((e) {
       final attrName = loader.attributes[e.key].displayName;
       return '$attrName ${e.value}';
     }).toList();
-    
+
     return Padding(
-      padding: const EdgeInsets.only(left: 4),
-      child: Text(
-        'Attr Reqs: ${reqTexts.join(", ")}',
-        style: TextStyle(
-          fontFamily: AppTokens.fontFamily,
-          fontSize: 8,
-          fontWeight: FontWeight.w400,
-          color: AppTokens.keyOff,
-        ),
-        overflow: TextOverflow.ellipsis,
+      padding: const EdgeInsets.only(left: 4, bottom: 2),
+      child: Wrap(
+        spacing: 4,
+        runSpacing: 2,
+        children: [
+          Text(
+            'Attr Reqs:',
+            style: TextStyle(
+              fontFamily: AppTokens.fontFamily,
+              fontSize: 8,
+              fontWeight: FontWeight.w500,
+              color: AppTokens.keyOff,
+            ),
+          ),
+          ...reqChips.map((t) => Text(
+            t,
+            style: TextStyle(
+              fontFamily: AppTokens.fontFamily,
+              fontSize: 8,
+              fontWeight: FontWeight.w400,
+              color: AppTokens.keyOff,
+            ),
+          )),
+        ],
       ),
     );
   }
@@ -431,12 +450,12 @@ class _GoalAddDialogContentState extends State<_GoalAddDialogContent> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Tab bar ──
+            // ── Tab bar (fixed) ──
             _buildTabBar(),
             const SizedBox(height: 8),
-            // ── Search field ──
+            // ── Search field (fixed) ──
             _buildSearchField(),
-            // ── Tab-specific input ──
+            // ── Tab-specific input (fixed) ──
             if (_tabIndex == 0) ...[
               const SizedBox(height: 4),
               _buildTierDropdown(),
@@ -445,14 +464,19 @@ class _GoalAddDialogContentState extends State<_GoalAddDialogContent> {
               const SizedBox(height: 4),
               _buildValueInput(),
             ],
-            // ── Results list ──
-            _buildResultsList(),
+            const SizedBox(height: 8),
+            // ── Results list (scrollable only this part) ──
+            Flexible(
+              child: SingleChildScrollView(
+                child: _buildResultsList(),
+              ),
+            ),
+            // ── Error + Buttons (fixed) ──
             if (_errorMessage != null) ...[
               const SizedBox(height: 4),
               Text(_errorMessage!, style: AppTokens.caption.copyWith(color: Colors.red, fontSize: 11, fontWeight: FontWeight.w600)),
             ],
             const SizedBox(height: 12),
-            // ── Buttons ──
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
@@ -526,6 +550,8 @@ class _GoalAddDialogContentState extends State<_GoalAddDialogContent> {
     return TextField(
       controller: _searchCtrl,
       focusNode: _searchFocus,
+      textInputAction: TextInputAction.done,
+      onSubmitted: (_) => FocusScope.of(context).unfocus(),
       style: AppTokens.body.copyWith(fontSize: 13),
       decoration: InputDecoration(
         hintText: hint,
@@ -607,7 +633,9 @@ class _GoalAddDialogContentState extends State<_GoalAddDialogContent> {
     return TextField(
       controller: _valueCtrl,
       focusNode: _valueFocus,
-      keyboardType: TextInputType.number,
+      textInputAction: TextInputAction.done,
+      onSubmitted: (_) => FocusScope.of(context).unfocus(),
+      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
       style: AppTokens.body.copyWith(fontSize: 13),
       decoration: InputDecoration(
         hintText: 'Target value (X in X/Y)',
