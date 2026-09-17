@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:image_gallery_saver/image_gallery_saver.dart';
 import '../data/models/build_save.dart';
 import '../data/services/build_storage_service.dart';
 import '../data/services/builder_state_v3.dart';
 import '../theme/app_tokens.dart';
 import 'center_dialog.dart';
+import 'share_build_card.dart';
 
 class MyBPage extends StatefulWidget {
   final VoidCallback onClose;
@@ -23,6 +25,10 @@ class _MyBPageState extends State<MyBPage> {
   final BuildStorageService _storage = BuildStorageService.instance;
   String? _editingId;
   late TextEditingController _editController;
+
+  final GlobalKey _shareCardKey = GlobalKey();
+  bool _isCapturing = false;
+  BuildSave? _shareTargetBuild;
 
   @override
   void initState() {
@@ -70,29 +76,17 @@ class _MyBPageState extends State<MyBPage> {
           children: [
             Text('Delete Build', style: AppTokens.cardTitleStyle),
             const SizedBox(height: 12),
-            Text(
-              'Delete "${entry.name}"?',
-              style: AppTokens.body,
-              textAlign: TextAlign.center,
-            ),
+            Text('Delete "${entry.name}"?', style: AppTokens.body, textAlign: TextAlign.center),
             const SizedBox(height: 20),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _buildDialogButton(
-                  label: 'Cancel',
-                  color: AppTokens.textSecondary,
-                  onTap: () => Navigator.pop(context),
-                ),
+                _buildDialogButton(label: 'Cancel', color: AppTokens.textSecondary, onTap: () => Navigator.pop(context)),
                 const SizedBox(width: 12),
-                _buildDialogButton(
-                  label: 'Delete',
-                  color: Colors.red,
-                  onTap: () {
-                    _storage.deleteBuild(entry.id);
-                    Navigator.pop(context);
-                  },
-                ),
+                _buildDialogButton(label: 'Delete', color: Colors.red, onTap: () {
+                  _storage.deleteBuild(entry.id);
+                  Navigator.pop(context);
+                }),
               ],
             ),
           ],
@@ -101,11 +95,7 @@ class _MyBPageState extends State<MyBPage> {
     );
   }
 
-  Widget _buildDialogButton({
-    required String label,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
+  Widget _buildDialogButton({required String label, required Color color, required VoidCallback onTap}) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -115,15 +105,10 @@ class _MyBPageState extends State<MyBPage> {
           borderRadius: BorderRadius.circular(AppTokens.radius),
           border: Border.all(color: color.withValues(alpha: 0.4), width: 1),
         ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontFamily: AppTokens.fontFamily,
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: color,
-          ),
-        ),
+        child: Text(label, style: TextStyle(
+          fontFamily: AppTokens.fontFamily, fontSize: 13,
+          fontWeight: FontWeight.w600, color: color,
+        )),
       ),
     );
   }
@@ -132,6 +117,116 @@ class _MyBPageState extends State<MyBPage> {
     _storage.applyBuild(entry, widget.builderState);
     widget.onClose();
   }
+
+  // ── Share → Save to Gallery → Show Success Dialog ─────────
+
+  Future<void> _shareBuild(BuildSave entry) async {
+    if (_isCapturing) return;
+    setState(() {
+      _isCapturing = true;
+      _shareTargetBuild = entry;
+    });
+
+    _storage.applyBuild(entry, widget.builderState);
+    await Future.delayed(const Duration(milliseconds: 300));
+
+    try {
+      final bytes = await ShareBuildCard.capture(_shareCardKey);
+      if (bytes == null) {
+        _showResultDialog(false, 'Failed to generate image');
+        return;
+      }
+
+      final result = await ImageGallerySaver.saveImage(
+        bytes,
+        quality: 100,
+        name: '3J37_${entry.name.replaceAll(' ', '_')}',
+      );
+
+      final isSuccess = result != null && (result['isSuccess'] == true || result['success'] == true);
+      _showResultDialog(isSuccess, isSuccess ? null : 'Please check your gallery');
+    } catch (e) {
+      debugPrint('Share error: $e');
+      _showResultDialog(false, e.toString());
+    } finally {
+      setState(() {
+        _isCapturing = false;
+        _shareTargetBuild = null;
+      });
+    }
+  }
+
+  void _showResultDialog(bool success, String? errorDetail) {
+    CenterDialog.show(
+      context: context,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Icon
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: (success ? AppTokens.primary : Colors.red).withValues(alpha: 0.15),
+              ),
+              child: Icon(
+                success ? Icons.check_rounded : Icons.close_rounded,
+                size: 32,
+                color: success ? AppTokens.primary : Colors.red,
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Title
+            Text(
+              success ? 'Saved to Gallery' : 'Save Failed',
+              style: TextStyle(
+                fontFamily: AppTokens.fontFamily,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: AppTokens.textPrimary,
+              ),
+            ),
+            if (errorDetail != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                errorDetail,
+                style: TextStyle(
+                  fontFamily: AppTokens.fontFamily,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w400,
+                  color: AppTokens.textSecondary,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+            const SizedBox(height: 20),
+            GestureDetector(
+              onTap: () => Navigator.pop(context),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: AppTokens.primary,
+                  borderRadius: BorderRadius.circular(AppTokens.radius),
+                ),
+                child: Center(
+                  child: Text('OK', style: TextStyle(
+                    fontFamily: AppTokens.fontFamily, fontSize: 14,
+                    fontWeight: FontWeight.w600, color: AppTokens.onPrimary,
+                  )),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Build UI ──────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -142,6 +237,17 @@ class _MyBPageState extends State<MyBPage> {
         color: AppTokens.background,
         child: Stack(
           children: [
+            // Offscreen share card (hidden, for capture)
+            if (_shareTargetBuild != null)
+              Positioned(
+                left: -9999, top: -9999,
+                child: ShareBuildCard(
+                  key: _shareCardKey,
+                  state: widget.builderState,
+                  repaintKey: _shareCardKey,
+                ),
+              ),
+
             Positioned.fill(
               child: entries.isEmpty
                   ? _buildEmptyState()
@@ -153,24 +259,25 @@ class _MyBPageState extends State<MyBPage> {
                         AppTokens.contentBottomInset,
                       ),
                       child: Column(
-                        children: [
-                          ...entries.map((entry) => Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: _BuildRow(
-                              entry: entry,
-                              isEditing: _editingId == entry.id,
-                              editController: _editController,
-                              onStartEdit: () => _startEditing(entry),
-                              onFinishEdit: _finishEditing,
-                              onTap: () => _loadBuild(entry),
-                              onDelete: () => _deleteBuild(entry),
-                            ),
-                          )),
-                        ],
+                        children: entries.map((entry) => Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: _BuildRow(
+                            entry: entry,
+                            isEditing: _editingId == entry.id,
+                            editController: _editController,
+                            onStartEdit: () => _startEditing(entry),
+                            onFinishEdit: _finishEditing,
+                            onTap: () => _loadBuild(entry),
+                            onDelete: () => _deleteBuild(entry),
+                            onShare: () => _shareBuild(entry),
+                            isCapturing: _isCapturing && _shareTargetBuild?.id == entry.id,
+                          ),
+                        )).toList(),
                       ),
                     ),
             ),
-            // Top gradient scrim
+
+            // Top scrim
             Positioned(
               top: 0, left: 0, right: 0,
               child: IgnorePointer(
@@ -182,6 +289,7 @@ class _MyBPageState extends State<MyBPage> {
                 ),
               ),
             ),
+
             // Top chrome
             Positioned(
               top: 0, left: 0, right: 0,
@@ -194,31 +302,11 @@ class _MyBPageState extends State<MyBPage> {
                     AppTokens.pageEdge,
                     0,
                   ),
-                  child: Row(
-                    children: [
-                      _buildPillButton(
-                        icon: Icons.arrow_back_rounded,
-                        label: '',
-                        onTap: widget.onClose,
-                      ),
-                      const SizedBox(width: 8),
-                      Text('MyB', style: AppTokens.pageTitle),
-                      const SizedBox(width: 12),
-                      Text('${entries.length} builds', style: AppTokens.caption),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            // Bottom gradient scrim
-            Positioned(
-              bottom: 0, left: 0, right: 0,
-              child: IgnorePointer(
-                child: SizedBox(
-                  height: AppTokens.bottomScrimHeight + MediaQuery.of(context).padding.bottom,
-                  child: const DecoratedBox(
-                    decoration: BoxDecoration(gradient: AppTokens.bottomScrim),
-                  ),
+                  child: Row(children: [
+                    _buildPillButton(icon: Icons.arrow_back_rounded, onTap: widget.onClose),
+                    const SizedBox(width: 12),
+                    Text('My Builds', style: AppTokens.pageTitle),
+                  ]),
                 ),
               ),
             ),
@@ -231,71 +319,45 @@ class _MyBPageState extends State<MyBPage> {
   Widget _buildEmptyState() {
     return Center(
       child: Column(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.inventory_2_outlined, size: 48, color: AppTokens.keyOff),
+          Icon(Icons.folder_open_rounded, size: 48, color: AppTokens.textSecondary.withValues(alpha: 0.3)),
           const SizedBox(height: 16),
-          Text(
-            'No Saved Builds',
-            style: TextStyle(
-              fontFamily: AppTokens.fontFamily,
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: AppTokens.textSecondary,
-            ),
-          ),
+          Text('No Saved Builds', style: TextStyle(
+            fontFamily: AppTokens.fontFamily, fontSize: 16,
+            fontWeight: FontWeight.w600, color: AppTokens.textSecondary,
+          )),
           const SizedBox(height: 8),
-          Text('Tap ✓ to save your current build', style: AppTokens.caption),
+          Text('Save a build to see it here', style: TextStyle(
+            fontFamily: AppTokens.fontFamily, fontSize: 13,
+            fontWeight: FontWeight.w400, color: AppTokens.textSecondary.withValues(alpha: 0.6),
+          )),
         ],
       ),
     );
   }
 
-  Widget _buildPillButton({
-    IconData? icon,
-    required String label,
-    required VoidCallback onTap,
-    bool highlight = false,
-  }) {
-    final foreground = highlight ? AppTokens.onPrimary : AppTokens.textPrimary;
-    final background = highlight ? AppTokens.primary : AppTokens.surface;
-    final borderColor = highlight ? AppTokens.primary : AppTokens.textSecondary;
-
-    return Material(
-      color: background,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTokens.radius),
-        side: BorderSide(color: borderColor, width: 1),
-      ),
-      elevation: 2,
-      shadowColor: AppTokens.buttonShadow,
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppTokens.radius),
-        child: Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: label.isNotEmpty ? 12 : 14,
-            vertical: label.isNotEmpty ? 7 : 9,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (icon != null) ...[
-                Icon(icon, size: 16, color: foreground),
-                if (label.isNotEmpty) const SizedBox(width: 6),
-              ],
-              if (label.isNotEmpty)
-                Text(label, style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: foreground, fontFamily: AppTokens.fontFamily)),
-            ],
-          ),
+  Widget _buildPillButton({required IconData icon, required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: AppTokens.surface,
+          borderRadius: BorderRadius.circular(AppTokens.radius),
+          border: Border.all(color: AppTokens.primary.withValues(alpha: 0.3), width: 1),
         ),
+        child: Icon(icon, size: 20, color: AppTokens.primary),
       ),
     );
   }
 }
 
-/// A single build row in the MyB list
+// ── Build Row ───────────────────────────────────────────────
+// Layout:
+//   [Name + subtitle]
+//   [Share] [Rename]        [Delete]
+
 class _BuildRow extends StatelessWidget {
   final BuildSave entry;
   final bool isEditing;
@@ -304,6 +366,8 @@ class _BuildRow extends StatelessWidget {
   final VoidCallback onFinishEdit;
   final VoidCallback onTap;
   final VoidCallback onDelete;
+  final VoidCallback onShare;
+  final bool isCapturing;
 
   const _BuildRow({
     required this.entry,
@@ -313,165 +377,138 @@ class _BuildRow extends StatelessWidget {
     required this.onFinishEdit,
     required this.onTap,
     required this.onDelete,
+    required this.onShare,
+    required this.isCapturing,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: AppTokens.surfaceAlt,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTokens.radius),
-        side: BorderSide(color: AppTokens.cardBorder, width: 1),
-      ),
-      elevation: 1,
-      shadowColor: AppTokens.buttonShadow,
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: isEditing ? null : onTap,
-        borderRadius: BorderRadius.circular(AppTokens.radius),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Name row
-              isEditing
-                  ? _buildNameEditor()
-                  : Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            entry.name,
-                            style: TextStyle(
-                              fontFamily: AppTokens.fontFamily,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              color: AppTokens.textPrimary,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        // Rename button (bigger)
-                        GestureDetector(
-                          onTap: onStartEdit,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: AppTokens.surface,
-                              borderRadius: BorderRadius.circular(AppTokens.radius),
-                              border: Border.all(color: AppTokens.textSecondary.withValues(alpha: 0.4), width: 1),
-                            ),
-                            child: Text(
-                              'Rename',
-                              style: TextStyle(
-                                fontFamily: AppTokens.fontFamily,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500,
-                                color: AppTokens.textSecondary,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        // Delete button (bigger, right side)
-                        GestureDetector(
-                          onTap: onDelete,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: AppTokens.surface,
-                              borderRadius: BorderRadius.circular(AppTokens.radius),
-                              border: Border.all(color: Colors.red.withValues(alpha: 0.4), width: 1),
-                            ),
-                            child: Text(
-                              'Delete',
-                              style: TextStyle(
-                                fontFamily: AppTokens.fontFamily,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.red,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-              const SizedBox(height: 6),
-              // Body data line - matching OverallDisplay style
-              Text(
-                entry.subtitleLine,
-                style: TextStyle(
-                  fontFamily: AppTokens.fontFamily,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w300,
-                  color: AppTokens.primary,
-                  letterSpacing: 0.2,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
+    return GestureDetector(
+      onTap: isEditing ? null : onTap,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppTokens.surface,
+          borderRadius: BorderRadius.circular(AppTokens.radius),
+          border: Border.all(color: AppTokens.primary.withValues(alpha: 0.2), width: 1),
         ),
+        child: isEditing ? _buildNameEditor() : _buildContent(),
+      ),
+    );
+  }
+
+  Widget _buildContent() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Name + subtitle
+        Text(entry.name, style: TextStyle(
+          fontFamily: AppTokens.fontFamily, fontSize: 15,
+          fontWeight: FontWeight.w600, color: AppTokens.textPrimary,
+        ), overflow: TextOverflow.ellipsis),
+        const SizedBox(height: 2),
+        Text(entry.subtitleLine, style: TextStyle(
+          fontFamily: AppTokens.fontFamily, fontSize: 10,
+          fontWeight: FontWeight.w300, color: AppTokens.primary, letterSpacing: 0.2,
+        ), overflow: TextOverflow.ellipsis),
+
+        const SizedBox(height: 8),
+
+        // Action row: [Share] [Rename]        [Delete]
+        Row(
+          children: [
+            _buildTextButton(
+              label: isCapturing ? '...' : 'Share',
+              color: AppTokens.primary,
+              onTap: isCapturing ? null : onShare,
+            ),
+            const SizedBox(width: 6),
+            _buildTextButton(
+              label: 'Rename',
+              color: AppTokens.textSecondary,
+              onTap: onStartEdit,
+            ),
+            const Spacer(),
+            _buildTextButton(
+              label: 'Delete',
+              color: Colors.red,
+              onTap: onDelete,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTextButton({
+    required String label,
+    required Color color,
+    VoidCallback? onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(AppTokens.radius),
+          border: Border.all(color: color.withValues(alpha: 0.3), width: 1),
+        ),
+        child: Text(label, style: TextStyle(
+          fontFamily: AppTokens.fontFamily, fontSize: 11,
+          fontWeight: FontWeight.w500, color: color,
+        )),
       ),
     );
   }
 
   Widget _buildNameEditor() {
-    return Row(
-      children: [
-        Expanded(
-          child: TextField(
-            controller: editController,
-            autofocus: true,
-            style: TextStyle(
-              fontFamily: AppTokens.fontFamily,
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              color: AppTokens.textPrimary,
-            ),
-            decoration: InputDecoration(
-              isDense: true,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              filled: true,
-              fillColor: AppTokens.surface,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppTokens.radius),
-                borderSide: BorderSide(color: AppTokens.primary, width: 1),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppTokens.radius),
-                borderSide: BorderSide(color: AppTokens.primary, width: 1),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppTokens.radius),
-                borderSide: BorderSide(color: AppTokens.primary, width: 1.5),
-              ),
-            ),
-            onSubmitted: (_) => onFinishEdit(),
-            onTapOutside: (_) => onFinishEdit(),
+    return Row(children: [
+      Expanded(
+        child: TextField(
+          controller: editController,
+          autofocus: true,
+          style: TextStyle(
+            fontFamily: AppTokens.fontFamily, fontSize: 15,
+            fontWeight: FontWeight.w600, color: AppTokens.textPrimary,
           ),
-        ),
-        const SizedBox(width: 8),
-        GestureDetector(
-          onTap: onFinishEdit,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: AppTokens.primary,
+          decoration: InputDecoration(
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            filled: true,
+            fillColor: AppTokens.surfaceAlt,
+            border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(AppTokens.radius),
+              borderSide: BorderSide(color: AppTokens.primary, width: 1),
             ),
-            child: Text(
-              'Done',
-              style: TextStyle(
-                fontFamily: AppTokens.fontFamily,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: AppTokens.onPrimary,
-              ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(AppTokens.radius),
+              borderSide: BorderSide(color: AppTokens.primary, width: 1),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(AppTokens.radius),
+              borderSide: BorderSide(color: AppTokens.primary, width: 1.5),
             ),
           ),
+          onSubmitted: (_) => onFinishEdit(),
+          onTapOutside: (_) => onFinishEdit(),
         ),
-      ],
-    );
+      ),
+      const SizedBox(width: 8),
+      GestureDetector(
+        onTap: onFinishEdit,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: AppTokens.primary,
+            borderRadius: BorderRadius.circular(AppTokens.radius),
+          ),
+          child: Text('Done', style: TextStyle(
+            fontFamily: AppTokens.fontFamily, fontSize: 13,
+            fontWeight: FontWeight.w600, color: AppTokens.onPrimary,
+          )),
+        ),
+      ),
+    ]);
   }
 }

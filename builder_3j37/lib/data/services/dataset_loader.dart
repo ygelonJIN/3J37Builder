@@ -880,24 +880,31 @@ class DatasetLoader {
     return tokenCostMap[TokenCostKey(badgeId, tier, heightInches)] ?? 0;
   }
 
-  /// 计算各学科的徽章槽位数 — 与网站逻辑完全一致
-  /// 网站通过 badgeModel 计算每个徽章的最高等级，然后按学科统计
+  // 网站决胜数组 (来自 logic-CMaECw5P.js: Sl 和 Tl)
+  // 注意：平分时按 Sl/Tl 值降序排列（值大的优先）
+  static const _addTiebreak = [2, 4, 3, 1, 6, 5];   // Sl: [finishing, shooting, playmaking, defense, rebounding, physical]
+  static const _removeTiebreak = [3, 1, 2, 4, 5, 6]; // Tl: [finishing, shooting, playmaking, defense, rebounding, physical]
+
+  /// 计算各学科的徽章槽位数 — 与网站 Pl 函数逻辑完全一致
+  /// 使用 0.6 * badgeRatio + 0.4 * tokenRatio 混合公式
+  /// 调整阶段使用动态分数排序 + 决胜数组，而非固定优先级
   /// 返回6个值 [finishing, shooting, playmaking, defense, rebounding, physical]
   List<int> getSlotBudget(String position, int heightInches, List<int> ratings) {
     if (badgeModelData == null) return [4, 4, 4, 4, 1, 3];
-    final counts = List.filled(6, 0);
+    
+    // 网站定义的上限
+    const maxSlots = [7, 7, 7, 7, 5, 6]; // [finishing, shooting, playmaking, defense, rebounding, physical]
+    
+    // 1. 统计每个类别的达标徽章数
+    final badgeCounts = List.filled(6, 0);
     final heightIdx = heightInches - badgeModelData!.heightBase;
-    final maxLevelLimit = (heightIdx >= 0 && heightIdx < badgeModelData!.heightCount)
-        ? 5 : 5; // 无身高限制时默认5
-
+    
     for (final badge in badgeModelData!.badges) {
-      // 检查身高限制
       final badgeMaxLevel = (heightIdx >= 0 && heightIdx < badgeModelData!.heightCount)
           ? badge.heightMaxLevels[heightIdx]
           : 5;
       if (badgeMaxLevel <= 0) continue;
-
-      // 检查是否满足任一等级需求
+      
       bool qualifies = false;
       for (int level = 0; level < badgeMaxLevel.clamp(0, 5); level++) {
         if (level >= badge.levels.length) break;
@@ -909,11 +916,87 @@ class DatasetLoader {
         }
       }
       if (!qualifies) continue;
-
+      
       final discIdx = _disciplineIndex[badge.category];
-      if (discIdx != null) counts[discIdx]++;
+      if (discIdx != null) badgeCounts[discIdx]++;
     }
-    return counts;
+    
+    final totalBadges = badgeCounts.reduce((a, b) => a + b);
+    if (totalBadges == 0) return List.filled(6, 0);
+    
+    // 2. 获取代币预算
+    final tokenBudget = getTokenBudget(position, heightInches, ratings);
+    final totalTokens = tokenBudget.reduce((a, b) => a + b);
+    
+    // 3. 计算混合分数并分配槽位
+    final slots = List.filled(6, 0);
+    final scores = List.filled(6, 0.0); // 保存分数用于排序
+    
+    for (int i = 0; i < 6; i++) {
+      final minSlots = badgeCounts[i] > 0 ? 1 : 0;
+      final tokenRatio = totalTokens > 0 ? tokenBudget[i] / totalTokens : 0.0;
+      final badgeRatio = badgeCounts[i] / totalBadges;
+      
+      // 网站公式: 0.6 * badgeRatio + 0.4 * tokenRatio
+      final blended = 0.6 * badgeRatio + 0.4 * tokenRatio;
+      scores[i] = blended;
+      
+      // 分配槽位，受多重限制: min(max(rounded, min), badgeCount, maxSlots)
+      final rawSlots = _roundHalfEven(20 * blended);
+      final limit = [badgeCounts[i], maxSlots[i]].reduce((a, b) => a < b ? a : b);
+      slots[i] = rawSlots.clamp(minSlots, limit);
+    }
+    
+    // 4. 调整确保总数恰好为20（使用网站的动态排序逻辑）
+    int currentTotal = slots.reduce((a, b) => a + b);
+    
+    // 如果不足20，按分数降序添加（平分时 Sl 值大的优先）
+    if (currentTotal < 20) {
+      final addOrder = List.generate(6, (i) => i);
+      addOrder.sort((a, b) {
+        final scoreDiff = scores[b].compareTo(scores[a]); // 分数降序
+        if (scoreDiff.abs() > 1e-9) return scoreDiff;
+        return _addTiebreak[b].compareTo(_addTiebreak[a]); // 平分时 Sl 值大的优先
+      });
+      
+      for (int round = 0; round < 3 && currentTotal < 20; round++) {
+        bool added = true;
+        while (added && currentTotal < 20) {
+          added = false;
+          for (final idx in addOrder) {
+            if (currentTotal >= 20) break;
+            final limit = round == 0 
+                ? [badgeCounts[idx], maxSlots[idx]].reduce((a, b) => a < b ? a : b)
+                : round == 1 ? maxSlots[idx] : 999999;
+            if (badgeCounts[idx] > 0 && slots[idx] < limit) {
+              slots[idx]++;
+              added = true;
+              currentTotal++;
+              if (currentTotal >= 20) break;
+            }
+          }
+        }
+      }
+    }
+    
+    // 如果超过20，按分数升序移除（平分时 Tl 值大的优先）
+    if (currentTotal > 20) {
+      final removeOrder = List.generate(6, (i) => i);
+      removeOrder.sort((a, b) {
+        final scoreDiff = scores[a].compareTo(scores[b]); // 分数升序
+        if (scoreDiff.abs() > 1e-9) return scoreDiff;
+        return _removeTiebreak[b].compareTo(_removeTiebreak[a]); // 平分时 Tl 值大的优先
+      });
+      
+      for (final idx in removeOrder) {
+        while (currentTotal > 20 && slots[idx] > (badgeCounts[idx] > 0 ? 1 : 0)) {
+          slots[idx]--;
+          currentTotal--;
+        }
+      }
+    }
+    
+    return slots;
   }
 
   /// Count qualified badges per discipline for given attribute values.
