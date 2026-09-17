@@ -3,12 +3,15 @@ import 'package:provider/provider.dart';
 import '../data/services/builder_state_v3.dart';
 import '../data/services/dataset_loader.dart';
 import '../data/services/cap_breaker_engine.dart';
+import '../data/services/build_storage_service.dart';
 import '../theme/app_tokens.dart';
 import '../widgets/attribute_group.dart';
 import '../widgets/badge_panel.dart';
 import '../widgets/animation_panel.dart';
 import '../widgets/overall_display.dart';
 import '../widgets/goal_card.dart';
+import '../widgets/myb_page.dart';
+import '../widgets/myb_split_button.dart';
 import 'dart:convert';
 
 class BuilderScreenV2 extends StatefulWidget {
@@ -23,6 +26,7 @@ class _BuilderScreenV2State extends State<BuilderScreenV2> {
   bool _heavyLoading = true;
   bool _showBadges = false;
   bool _showMoves = false;
+  bool _showMyB = false;
   bool _cardExpanded = true;
   bool _goalExpanded = false;
   final ScrollController _scrollController = ScrollController();
@@ -30,10 +34,15 @@ class _BuilderScreenV2State extends State<BuilderScreenV2> {
   // Cap breaker engine
   final CapBreakerEngine _cbEngine = CapBreakerEngine();
 
+  // Reference to the current builder state for saving
+  BuilderStateV3? _currentState;
+
   @override
   void initState() {
     super.initState();
     _loadData();
+    // Load saved builds
+    BuildStorageService.instance.loadBuilds();
   }
 
   @override
@@ -82,6 +91,44 @@ class _BuilderScreenV2State extends State<BuilderScreenV2> {
 
   void _closeMoves() {
     setState(() => _showMoves = false);
+  }
+
+  /// Open MyB without saving current build
+  void _openMyB() {
+    setState(() => _showMyB = true);
+  }
+
+  /// Save current build then open MyB
+  void _saveAndOpenMyB() {
+    if (_currentState == null) return;
+    BuildStorageService.instance.saveBuild(_currentState!).then((_) {
+      if (mounted) {
+        setState(() => _showMyB = true);
+        // Show confirmation snackbar
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Build saved',
+              style: TextStyle(
+                fontFamily: AppTokens.fontFamily,
+                color: AppTokens.textPrimary,
+              ),
+            ),
+            backgroundColor: AppTokens.surface,
+            duration: const Duration(seconds: 1),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppTokens.radius),
+              side: BorderSide(color: AppTokens.cardBorder),
+            ),
+          ),
+        );
+      }
+    });
+  }
+
+  void _closeMyB() {
+    setState(() => _showMyB = false);
   }
 
   void _onCardExpandedChanged(bool expanded) {
@@ -140,18 +187,28 @@ class _BuilderScreenV2State extends State<BuilderScreenV2> {
       create: (_) => BuilderStateV3(),
       child: Scaffold(
         backgroundColor: AppTokens.background,
-        body: Stack(
-          children: [
-            _buildHomeBody(),
-            if (_showBadges) _buildBadgesPage(),
-            if (_showMoves) _buildMovesPage(),
-          ],
+        body: Consumer<BuilderStateV3>(
+          builder: (context, state, _) {
+            // Keep a reference for saving
+            _currentState = state;
+            return Stack(
+              children: [
+                _buildHomeBody(state),
+                if (_showBadges) _buildBadgesPage(state),
+                if (_showMoves) _buildMovesPage(),
+                if (_showMyB) MyBPage(
+                  onClose: _closeMyB,
+                  builderState: state,
+                ),
+              ],
+            );
+          },
         ),
       ),
     );
   }
 
-  Widget _buildHomeBody() {
+  Widget _buildHomeBody(BuilderStateV3 state) {
     // Base inset accounts for SafeArea + OverallDisplay + buttons.
     // GoalCard minimized adds ~44px (36px card + 8px spacing).
     const goalCardMinHeight = 44.0;
@@ -160,115 +217,116 @@ class _BuilderScreenV2State extends State<BuilderScreenV2> {
     final goalExtraHeight = _goalExpanded ? 200.0 : 0.0;
     final topInset = baseTopInset + expandedExtraHeight + goalExtraHeight;
 
-    return Consumer<BuilderStateV3>(
-      builder: (context, state, _) {
-        return Stack(
-          children: [
-            Positioned.fill(child: Container(color: AppTokens.background)),
-            Positioned.fill(
-              child: Listener(
-                onPointerDown: (_) => FocusScope.of(context).unfocus(),
-                child: NotificationListener<UserScrollNotification>(
-                  onNotification: (_) {
-                    FocusScope.of(context).unfocus();
-                    return false;
-                  },
-                  child: SingleChildScrollView(
-                    controller: _scrollController,
-                    padding: EdgeInsets.fromLTRB(
-                      AppTokens.pageEdge,
-                      topInset,
-                      AppTokens.pageEdge,
-                      AppTokens.contentBottomInset,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const AttributeGroups(),
-                      ],
+    return Stack(
+      children: [
+        Positioned.fill(child: Container(color: AppTokens.background)),
+        Positioned.fill(
+          child: Listener(
+            onPointerDown: (_) => FocusScope.of(context).unfocus(),
+            child: NotificationListener<UserScrollNotification>(
+              onNotification: (_) => false,
+              child: CustomScrollView(
+                controller: _scrollController,
+                slivers: [
+                  SliverPadding(
+                    padding: EdgeInsets.only(top: topInset),
+                    sliver: SliverList(
+                      delegate: SliverChildListDelegate([
+                        AttributeGroups(),
+                        const SizedBox(height: 200),
+                      ]),
                     ),
                   ),
-                ),
+                ],
               ),
             ),
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: IgnorePointer(
-                child: SizedBox(
-                  height: AppTokens.topScrimHeight,
-                  child: const DecoratedBox(
-                    decoration: BoxDecoration(gradient: AppTokens.topScrim),
-                  ),
-                ),
+          ),
+        ),
+        // Top gradient scrim
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: IgnorePointer(
+            child: SizedBox(
+              height: AppTokens.topScrimHeight,
+              child: const DecoratedBox(
+                decoration: BoxDecoration(gradient: AppTokens.topScrim),
               ),
             ),
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: SafeArea(
-                bottom: false,
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    AppTokens.pageEdge,
-                    AppTokens.topChromeInset,
-                    AppTokens.pageEdge,
-                    0,
+          ),
+        ),
+        // Top chrome: overall display + buttons
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: SafeArea(
+            bottom: false,
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                AppTokens.pageEdge,
+                AppTokens.topChromeInset,
+                AppTokens.pageEdge,
+                0,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Goal card (top)
+                  GoalCard(
+                    onExpandedChanged: _onGoalExpandedChanged,
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  const SizedBox(height: 8),
+                  // Body data card (OverallDisplay)
+                  OverallDisplay(
+                    onExpandedChanged: _onCardExpandedChanged,
+                  ),
+                  const SizedBox(height: 8),
+                  // MyB split button / Badges / Moves pill buttons
+                  Row(
                     children: [
-                      // Goal card (top)
-                      GoalCard(
-                        onExpandedChanged: _onGoalExpandedChanged,
+                      // MyB split button (save ✓ | MyB)
+                      MyBSplitButton(
+                        onSaveAndOpen: _saveAndOpenMyB,
+                        onOpen: _openMyB,
                       ),
-                      const SizedBox(height: 8),
-                      // Body data card (OverallDisplay)
-                      OverallDisplay(
-                        onExpandedChanged: _onCardExpandedChanged,
+                      const SizedBox(width: 8),
+                      _buildPillButton(
+                        label: 'Badges',
+                        onTap: _openBadges,
                       ),
-                      const SizedBox(height: 8),
-                      // Badges / Moves pill buttons
-                      Row(
-                        children: [
-                          _buildPillButton(
-                            label: 'Badges',
-                            onTap: _openBadges,
-                          ),
-                          const SizedBox(width: 8),
-                          _buildPillButton(
-                            label: 'Moves',
-                            onTap: _openMoves,
-                          ),
-                        ],
+                      const SizedBox(width: 8),
+                      _buildPillButton(
+                        label: 'Moves',
+                        onTap: _openMoves,
                       ),
                     ],
                   ),
-                ),
+                ],
               ),
             ),
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: IgnorePointer(
-                child: SizedBox(
-                  height: AppTokens.bottomScrimHeight + MediaQuery.of(context).padding.bottom,
-                  child: const DecoratedBox(
-                    decoration: BoxDecoration(gradient: AppTokens.bottomScrim),
-                  ),
-                ),
+          ),
+        ),
+        // Bottom gradient scrim
+        Positioned(
+          bottom: 0,
+          left: 0,
+          right: 0,
+          child: IgnorePointer(
+            child: SizedBox(
+              height: AppTokens.bottomScrimHeight + MediaQuery.of(context).padding.bottom,
+              child: const DecoratedBox(
+                decoration: BoxDecoration(gradient: AppTokens.bottomScrim),
               ),
             ),
-          ],
-        );
-      },
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _buildBadgesPage() {
+  Widget _buildBadgesPage(BuilderStateV3 state) {
     return Positioned.fill(
       child: Container(
         color: AppTokens.background,

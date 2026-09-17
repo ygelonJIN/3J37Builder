@@ -600,7 +600,8 @@ class _AttributeControlState extends State<_AttributeControl> {
       child: StatefulBuilder(
         builder: (context, setDialogState) {
           final currentEquipped = state.equippedBadges[badge.badgeId];
-          return Padding(
+          return SingleChildScrollView(
+            child: Padding(
             padding: const EdgeInsets.all(20),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -691,6 +692,7 @@ class _AttributeControlState extends State<_AttributeControl> {
                   );
                 }),
               ],
+            ),
             ),
           );
         },

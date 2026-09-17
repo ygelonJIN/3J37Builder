@@ -10,6 +10,9 @@ import '../widgets/animation_panel.dart';
 import '../widgets/overall_display.dart';
 import '../widgets/attribute_floating_card.dart';
 import '../widgets/goal_card.dart';
+import '../data/services/build_storage_service.dart';
+import '../widgets/myb_page.dart';
+import '../widgets/myb_split_button.dart';
 
 class BuilderScreen extends StatefulWidget {
   const BuilderScreen({super.key});
@@ -23,6 +26,8 @@ class _BuilderScreenState extends State<BuilderScreen> {
   bool _heavyLoading = true;
   bool _showBadges = false;
   bool _showMoves = false;
+  bool _showMyB = false;
+  BuilderStateV3? _currentState;
   bool _cardExpanded = true;
   bool _minimapExpanded = false;
   bool _goalExpanded = false;
@@ -36,6 +41,7 @@ class _BuilderScreenState extends State<BuilderScreen> {
   void initState() {
     super.initState();
     _loadData();
+    BuildStorageService.instance.loadBuilds();
   }
 
   @override
@@ -71,6 +77,21 @@ class _BuilderScreenState extends State<BuilderScreen> {
 
   void _closeMoves() {
     setState(() => _showMoves = false);
+  }
+
+  void _openMyB() {
+    setState(() => _showMyB = true);
+  }
+
+  void _saveAndOpenMyB() {
+    if (_currentState == null) return;
+    BuildStorageService.instance.saveBuild(_currentState!).then((_) {
+      if (mounted) setState(() => _showMyB = true);
+    });
+  }
+
+  void _closeMyB() {
+    setState(() => _showMyB = false);
   }
 
   void _onCardExpandedChanged(bool expanded) {
@@ -167,6 +188,7 @@ class _BuilderScreenState extends State<BuilderScreen> {
 
     return Consumer<BuilderStateV3>(
       builder: (context, state, _) {
+        _currentState = state;
         return Stack(
           children: [
             Positioned.fill(child: Container(color: AppTokens.background)),
@@ -261,7 +283,8 @@ class _BuilderScreenState extends State<BuilderScreen> {
                 ),
               ),
             ),
-            Positioned(
+            if (_showMyB) MyBPage(onClose: _closeMyB, builderState: state),
+            if (!_showMyB) Positioned(
               bottom: 0,
               left: 0,
               right: 0,
@@ -277,6 +300,11 @@ class _BuilderScreenState extends State<BuilderScreen> {
                   child: Row(
                     children: [
                       const Spacer(),
+                      MyBSplitButton(
+                        onSaveAndOpen: _saveAndOpenMyB,
+                        onOpen: _openMyB,
+                      ),
+                      const SizedBox(width: 8),
                       _buildPillButton(
                         label: 'Badges',
                         onTap: _openBadges,
@@ -473,8 +501,8 @@ class _BuilderScreenState extends State<BuilderScreen> {
         borderRadius: BorderRadius.circular(AppTokens.radius),
         child: Padding(
           padding: EdgeInsets.symmetric(
-            horizontal: label.isNotEmpty ? 16 : 14,
-            vertical: label.isNotEmpty ? 10 : 9,
+            horizontal: label.isNotEmpty ? 12 : 14,
+            vertical: label.isNotEmpty ? 7 : 9,
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../data/models/attribute.dart';
+import '../data/models/enums.dart';
 import '../data/services/builder_state_v3.dart';
 import '../data/services/dataset_loader.dart';
 import '../theme/app_tokens.dart';
@@ -101,22 +102,35 @@ class _AttributeFloatingCardState extends State<AttributeFloatingCard> {
   }
 
   Widget _buildMinimap(List<AttributeDef> attributes, BuilderStateV3 state, List<int> caps) {
+    // Group attributes by discipline
+    final grouped = <Discipline, List<AttributeDef>>{};
+    for (final attr in attributes) {
+      grouped.putIfAbsent(attr.discipline, () => []).add(attr);
+    }
+    
     final rows = <Widget>[];
-    for (int i = 0; i < attributes.length; i += 2) {
-      final a1 = attributes[i];
-      final a2 = i + 1 < attributes.length ? attributes[i + 1] : null;
-      rows.add(
-        Padding(
-          padding: const EdgeInsets.only(bottom: 2),
-          child: Row(
-            children: [
-              Expanded(child: _buildTile(a1, state.ratings[a1.index], caps[a1.index])),
-              const SizedBox(width: 2),
-              Expanded(child: a2 != null ? _buildTile(a2, state.ratings[a2.index], caps[a2.index]) : const SizedBox()),
-            ],
+    // Build rows for each discipline group
+    for (final disc in Discipline.values) {
+      final attrs = grouped[disc];
+      if (attrs == null || attrs.isEmpty) continue;
+      
+      // Add attributes in pairs of 2
+      for (int i = 0; i < attrs.length; i += 2) {
+        final a1 = attrs[i];
+        final a2 = i + 1 < attrs.length ? attrs[i + 1] : null;
+        rows.add(
+          Padding(
+            padding: const EdgeInsets.only(bottom: 2),
+            child: Row(
+              children: [
+                Expanded(child: _buildTile(a1, state.ratings[a1.index], caps[a1.index])),
+                const SizedBox(width: 2),
+                Expanded(child: a2 != null ? _buildTile(a2, state.ratings[a2.index], caps[a2.index]) : const SizedBox()),
+              ],
+            ),
           ),
-        ),
-      );
+        );
+      }
     }
     return Column(children: rows);
   }
