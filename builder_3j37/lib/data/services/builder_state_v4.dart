@@ -296,7 +296,7 @@ class BuilderStateV4 extends ChangeNotifier {
     _equippedBadges.forEach((badgeId, currentTier) {
       if (currentTier == null) return;
       
-      final highestTier = _loader.getHighestQualifiedTier(badgeId, _finalRatings);
+      final highestTier = _loader.getHighestQualifiedTierWithHeight(badgeId, _finalRatings, _heightInches);
       final badge = _loader.badgeDefinitions.firstWhere(
         (b) => b.badgeId == badgeId,
         orElse: () => BadgeDef(badgeId: badgeId, name: '', discipline: Discipline.finishing, group: 0, minHeight: 0, maxHeight: 99, allowed: false),
@@ -334,7 +334,7 @@ class BuilderStateV4 extends ChangeNotifier {
   }
 
   List<int> getAttributeCaps() => _loader.getAttributeCaps(_position, _heightInches, _weightLb, _wingspanInches);
-  List<int> getTokenBudget() => _loader.getTokenBudget(_heightInches, _finalRatings);
+  List<int> getTokenBudget() => _loader.getTokenBudget(_position.name.toUpperCase(), _heightInches, _finalRatings);
 
   List<int> getTokensSpent() {
     final spent = List.filled(6, 0);
@@ -356,7 +356,7 @@ class BuilderStateV4 extends ChangeNotifier {
 
   List<BadgeStatus> getBadgeStatuses() {
     return _loader.badgeDefinitions.map((badge) {
-      final highestTier = _loader.getHighestQualifiedTier(badge.badgeId, _finalRatings);
+      final highestTier = _loader.getHighestQualifiedTierWithHeight(badge.badgeId, _finalRatings, _heightInches);
       final equipped = _equippedBadges[badge.badgeId];
       return BadgeStatus(
         badge: badge, 

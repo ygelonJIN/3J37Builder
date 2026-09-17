@@ -16,6 +16,9 @@ class AnimationPanel extends StatefulWidget {
 
 class _AnimationPanelState extends State<AnimationPanel> {
   int _selectedTab = 0;
+  final TextEditingController _searchCtrl = TextEditingController();
+  final FocusNode _searchFocus = FocusNode();
+  String _searchQuery = '';
 
   @override
   Widget build(BuildContext context) {
@@ -56,9 +59,35 @@ class _AnimationPanelState extends State<AnimationPanel> {
             );
           }),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
+        // Search input
+        TextField(
+          controller: _searchCtrl,
+          focusNode: _searchFocus,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) => FocusScope.of(context).unfocus(),
+          onChanged: (v) => setState(() { _searchQuery = v; }),
+          style: AppTokens.body.copyWith(fontSize: 13),
+          decoration: InputDecoration(
+            hintText: 'Search moves...',
+            hintStyle: AppTokens.caption,
+            prefixIcon: Icon(Icons.search, size: 18, color: AppTokens.textSecondary),
+            filled: true,
+            fillColor: AppTokens.surfaceAlt,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.radius), borderSide: BorderSide(color: AppTokens.inputBorder)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.radius), borderSide: BorderSide(color: AppTokens.inputBorder)),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.radius), borderSide: BorderSide(color: AppTokens.primary)),
+          ),
+        ),
+        const SizedBox(height: 8),
         // Groups for selected tab
-        ...tabs[_selectedTab].groups.map((group) => _AnimGroupWidget(group: group)),
+        ...tabs[_selectedTab].groups
+            .where((group) {
+              if (_searchQuery.isEmpty) return true;
+              return group.anims.any((a) => a.getDisplayName().toLowerCase().contains(_searchQuery.toLowerCase()));
+            })
+            .map((group) => _AnimGroupWidget(group: group, searchQuery: _searchQuery)),
       ],
     );
   }
@@ -66,7 +95,8 @@ class _AnimationPanelState extends State<AnimationPanel> {
 
 class _AnimGroupWidget extends StatefulWidget {
   final AnimGroup group;
-  const _AnimGroupWidget({required this.group});
+  final String searchQuery;
+  const _AnimGroupWidget({required this.group, this.searchQuery = ''});
 
   @override
   State<_AnimGroupWidget> createState() => _AnimGroupWidgetState();
@@ -80,10 +110,12 @@ class _AnimGroupWidgetState extends State<_AnimGroupWidget> {
     final group = widget.group;
     final state = context.watch<BuilderStateV3>();
     final ratings = state.ratings;
+    final hasSearch = widget.searchQuery.isNotEmpty;
 
-    // Count unlocked animations
+    // Count unlocked animations (filtered)
     int unlocked = 0;
     for (final anim in group.anims) {
+      if (hasSearch && !anim.getDisplayName().toLowerCase().contains(widget.searchQuery.toLowerCase())) continue;
       if (_isUnlocked(anim, ratings)) unlocked++;
     }
 
@@ -121,9 +153,14 @@ class _AnimGroupWidgetState extends State<_AnimGroupWidget> {
               ),
             ),
           ),
-          if (_expanded) ...[
+          if (_expanded || hasSearch) ...[
             const Divider(height: 1, color: AppTokens.chipBorder),
-            ...group.anims.map((anim) => _AnimEntryWidget(anim: anim)),
+            ...group.anims
+                .where((anim) {
+                  if (widget.searchQuery.isEmpty) return true;
+                  return anim.getDisplayName().toLowerCase().contains(widget.searchQuery.toLowerCase());
+                })
+                .map((anim) => _AnimEntryWidget(anim: anim)),
           ],
         ],
       ),

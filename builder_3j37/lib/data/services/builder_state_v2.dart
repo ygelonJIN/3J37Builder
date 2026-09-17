@@ -328,7 +328,7 @@ class BuilderStateV2 extends ChangeNotifier {
   }
 
   List<int> getAttributeCaps() => _loader.getAttributeCaps(_position, _heightInches, _weightLb, _wingspanInches);
-  List<int> getTokenBudget() => _loader.getTokenBudget(_heightInches, _finalRatings);
+  List<int> getTokenBudget() => _loader.getTokenBudget(_position.name.toUpperCase(), _heightInches, _finalRatings);
 
   List<int> getTokensSpent() {
     final spent = List.filled(6, 0);

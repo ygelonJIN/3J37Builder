@@ -41,6 +41,7 @@ class AttributeGroups extends StatelessWidget {
           final colour = AppTokens.disciplineColours[disc.name] ?? AppTokens.textSecondary;
           final tokenRemaining = remaining[disc.index];
           final tokenBudget = budget[disc.index];
+          final slotBudget = state.getSlotBudget();
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -51,7 +52,7 @@ class AttributeGroups extends StatelessWidget {
                   children: [
                     Text(disc.displayName, style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 15, fontWeight: FontWeight.w600, color: colour)),
                     const SizedBox(width: 6),
-                    Text('$tokenRemaining/$tokenBudget', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 14, fontWeight: FontWeight.w600, color: colour)),
+                    Text('$tokenRemaining/$tokenBudget Tokens ${slotBudget[disc.index]} Slots', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 14, fontWeight: FontWeight.w600, color: colour)),
                   ],
                 ),
               ),

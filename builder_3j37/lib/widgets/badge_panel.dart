@@ -33,6 +33,7 @@ class BadgePanel extends StatelessWidget {
           remaining: remaining,
           totalBudget: totalBudget,
           totalRemaining: totalRemaining,
+          slotBudget: state.getSlotBudget(),
         ),
         const SizedBox(height: 16),
         ...Discipline.values.map((disc) {
@@ -41,6 +42,7 @@ class BadgePanel extends StatelessWidget {
           final colour = AppTokens.disciplineColours[disc.name] ?? AppTokens.textSecondary;
           final tokenRemaining = remaining[disc.index];
           final tokenBudget = budget[disc.index];
+          final slotBudget = state.getSlotBudget();
           
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -61,7 +63,7 @@ class BadgePanel extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      '$tokenRemaining/$tokenBudget',
+                      '$tokenRemaining/$tokenBudget Tokens ${slotBudget[disc.index]} Slots',
                       style: TextStyle(
                         fontFamily: AppTokens.fontFamily,
                         fontSize: 14,
@@ -93,12 +95,14 @@ class _TokenBudgetRow extends StatelessWidget {
   final List<int> remaining;
   final int totalBudget;
   final int totalRemaining;
+  final List<int> slotBudget;
 
   const _TokenBudgetRow({
     required this.budget,
     required this.remaining,
     required this.totalBudget,
     required this.totalRemaining,
+    required this.slotBudget,
   });
 
   @override
@@ -123,39 +127,25 @@ class _TokenBudgetRow extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          Wrap(
-            spacing: 16,
-            runSpacing: 10,
-            children: Discipline.values.map((disc) {
+          ...Discipline.values.map((disc) {
               final colour = AppTokens.disciplineColours[disc.name] ?? AppTokens.textSecondary;
               final b = budget[disc.index];
               final r = remaining[disc.index];
-              return Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    disc.displayName,
-                    style: TextStyle(
-                      fontFamily: AppTokens.fontFamily,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: colour,
-                    ),
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Text(
+                  '${disc.displayName}  $r/$b Tokens  ${slotBudget[disc.index]} Slots',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: AppTokens.fontFamily,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: colour,
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '$r/$b',
-                    style: TextStyle(
-                      fontFamily: AppTokens.fontFamily,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: colour,
-                    ),
-                  ),
-                ],
+                ),
               );
-            }).toList(),
-          ),
+            }),
         ],
       ),
     );

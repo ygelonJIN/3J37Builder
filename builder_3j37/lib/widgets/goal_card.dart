@@ -394,6 +394,38 @@ class _GoalCardState extends State<GoalCard> {
 // ══════════════════════════════════════════════════════════════
 // Add dialog content – tab-based with search
 // ══════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════
+// Sliver persistent header delegate with themed background
+// ══════════════════════════════════════════════════════════════
+class _CategoryHeaderDelegate extends SliverPersistentHeaderDelegate {
+  final Widget child;
+  final bool expanded;
+
+  _CategoryHeaderDelegate({required this.child, required this.expanded});
+
+  @override
+  double get maxExtent => 44.0;
+
+  @override
+  double get minExtent => 44.0;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Container(
+      clipBehavior: Clip.none,
+      decoration: BoxDecoration(
+        color: AppTokens.surfaceAlt,
+        border: Border.all(color: AppTokens.cardBorder, width: 0.5),
+        borderRadius: BorderRadius.circular(AppTokens.radius),
+      ),
+      child: child,
+    );
+  }
+
+  @override
+  bool shouldRebuild(covariant _CategoryHeaderDelegate oldDelegate) =>
+      child != oldDelegate.child || expanded != oldDelegate.expanded;
+}
 class _GoalAddDialogContent extends StatefulWidget {
   final BuilderStateV3 state;
   final DatasetLoader loader;
@@ -414,8 +446,11 @@ class _GoalAddDialogContentState extends State<_GoalAddDialogContent> {
   String? _selectedId;
   BadgeTier? _selectedTier;
   String? _errorMessage;
+  bool _tierDropdownOpen = false;
   String _searchQuery = '';
   final Set<String> _expandedGroups = {}; // discipline name or animGroup key
+  String? _lastExpandedDisc;
+  String? _lastExpandedGroup;
 
   @override
   void initState() {
@@ -446,7 +481,7 @@ class _GoalAddDialogContentState extends State<_GoalAddDialogContent> {
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisSize: MainAxisSize.max,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // ── Tab bar (fixed) ──
@@ -465,10 +500,10 @@ class _GoalAddDialogContentState extends State<_GoalAddDialogContent> {
             ],
             const SizedBox(height: 8),
             // ── Results list (scrollable only this part) ──
-            Flexible(
-              child: SingleChildScrollView(
-                child: _buildResultsList(),
-              ),
+            Expanded(
+              child: _tabIndex == 2
+                  ? SingleChildScrollView(child: _buildResultsList())
+                  : _buildResultsList(),
             ),
             // ── Error + Buttons (fixed) ──
             if (_errorMessage != null) ...[
@@ -566,64 +601,76 @@ class _GoalAddDialogContentState extends State<_GoalAddDialogContent> {
     );
   }
 
-  // ── Tier dropdown (custom, matches input width) ──
+  // ── Tier dropdown (inline, expandable) ──
   Widget _buildTierDropdown() {
-    final tiers = BadgeTier.values;
-    final labels = ['Bronze', 'Silver', 'Gold', 'Hall of Fame', 'Legend'];
-    return GestureDetector(
-      onTap: () => _showTierPicker(),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: AppTokens.surfaceAlt,
-          border: Border.all(color: AppTokens.inputBorder),
-          borderRadius: BorderRadius.circular(AppTokens.radius),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                _selectedTier?.label ?? 'Select badge tier',
-                style: TextStyle(
-                  fontFamily: AppTokens.fontFamily,
-                  fontSize: 13,
-                  color: _selectedTier != null ? AppTokens.textPrimary : AppTokens.textSecondary,
-                ),
-              ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        GestureDetector(
+          onTap: () => setState(() { _tierDropdownOpen = !_tierDropdownOpen; }),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: AppTokens.surfaceAlt,
+              border: Border.all(color: _tierDropdownOpen ? AppTokens.primary : AppTokens.inputBorder),
+              borderRadius: BorderRadius.circular(AppTokens.radius),
             ),
-            Icon(Icons.expand_more, size: 18, color: AppTokens.primary),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showTierPicker() {
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        return SimpleDialog(
-          backgroundColor: AppTokens.surfaceAlt,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTokens.radius)),
-          title: Text('Select Badge Tier', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 14, fontWeight: FontWeight.w600, color: AppTokens.textPrimary)),
-          children: BadgeTier.values.map((tier) {
-            final selected = _selectedTier == tier;
-            return SimpleDialogOption(
-              onPressed: () { setState(() { _selectedTier = tier; _errorMessage = null; }); Navigator.pop(ctx); },
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  children: [
-                    if (selected) Icon(Icons.check, size: 16, color: AppTokens.primary),
-                    if (selected) const SizedBox(width: 8),
-                    Text(tier.label, style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 13, fontWeight: selected ? FontWeight.w600 : FontWeight.w400, color: selected ? AppTokens.primary : AppTokens.textPrimary)),
-                  ],
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _selectedTier?.label ?? 'Select badge tier',
+                    style: TextStyle(
+                      fontFamily: AppTokens.fontFamily,
+                      fontSize: 13,
+                      color: _selectedTier != null ? AppTokens.textPrimary : AppTokens.textSecondary,
+                    ),
+                  ),
                 ),
-              ),
-            );
-          }).toList(),
-        );
-      },
+                Icon(_tierDropdownOpen ? Icons.expand_less : Icons.expand_more, size: 18, color: AppTokens.primary),
+              ],
+            ),
+          ),
+        ),
+        if (_tierDropdownOpen) ...[
+          Container(
+            margin: const EdgeInsets.only(top: 2),
+            decoration: BoxDecoration(
+              color: AppTokens.surfaceAlt,
+              border: Border.all(color: AppTokens.inputBorder),
+              borderRadius: BorderRadius.circular(AppTokens.radius),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: BadgeTier.values.map((tier) {
+                final selected = _selectedTier == tier;
+                return GestureDetector(
+                  onTap: () => setState(() { _selectedTier = tier; _tierDropdownOpen = false; _errorMessage = null; }),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: selected ? AppTokens.primary.withValues(alpha: 0.1) : Colors.transparent,
+                      border: Border(
+                        bottom: tier != BadgeTier.values.last
+                            ? BorderSide(color: AppTokens.keyOff.withValues(alpha: 0.3), width: 0.5)
+                            : BorderSide.none,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        if (selected) Icon(Icons.check, size: 14, color: AppTokens.primary),
+                        if (selected) const SizedBox(width: 8),
+                        Text(tier.label, style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 13, fontWeight: selected ? FontWeight.w600 : FontWeight.w400, color: selected ? AppTokens.primary : AppTokens.textPrimary)),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ],
     );
   }
 
@@ -662,58 +709,89 @@ class _GoalAddDialogContentState extends State<_GoalAddDialogContent> {
     }
   }
 
-  // ── Badges list – collapsible by discipline ──
+  // ── Badges list – collapsible by discipline (sliver pinned headers) ──
   Widget _buildBadgesList(String query) {
     final allBadges = loader.badgeDefinitions.where((b) => b.allowed).toList();
     final filtered = query.isEmpty ? allBadges : allBadges.where((b) => b.displayName.toLowerCase().contains(query)).toList();
     if (filtered.isEmpty) return Center(child: Text('No results', style: AppTokens.caption));
     final grouped = <Discipline, List<BadgeDef>>{};
     for (final b in filtered) { grouped.putIfAbsent(b.discipline, () => []).add(b); }
-    final items = <Widget>[];
+    // Compute last expanded discipline key
+    String? lastExpandedDisc;
+    for (final disc in Discipline.values) {
+      if (grouped.containsKey(disc) && _expandedGroups.contains(disc.name)) {
+        lastExpandedDisc = disc.name;
+      }
+    }
+    final slivers = <Widget>[];
     for (final disc in Discipline.values) {
       final badges = grouped[disc];
       if (badges == null || badges.isEmpty) continue;
       final key = disc.name;
       final expanded = _expandedGroups.contains(key);
       final color = AppTokens.disciplineColours[key] ?? AppTokens.textSecondary;
-      // Header (tappable to expand/collapse)
-      items.add(GestureDetector(
-        onTap: () => setState(() { expanded ? _expandedGroups.remove(key) : _expandedGroups.add(key); }),
-        child: Padding(
-          padding: const EdgeInsets.only(left: 4, top: 0, bottom: 2),
-          child: Row(children: [
-            Icon(expanded ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_right, size: 14, color: color),
-            const SizedBox(width: 2),
-            Text('${disc.displayName} (${badges.length})', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 11, fontWeight: FontWeight.w700, color: color)),
-          ]),
+      slivers.add(SliverPersistentHeader(
+        pinned: expanded && key == lastExpandedDisc,
+        delegate: _CategoryHeaderDelegate(
+          expanded: expanded,
+          child: GestureDetector(
+            onTap: () => setState(() { expanded ? _expandedGroups.remove(key) : _expandedGroups.add(key); }),
+            child: Container(
+              margin: const EdgeInsets.only(left: 2, top: 2, bottom: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+              clipBehavior: Clip.none,
+              decoration: BoxDecoration(
+                color: AppTokens.textSecondary.withValues(alpha: 0.08),
+                border: Border.all(color: AppTokens.textSecondary.withValues(alpha: 0.3), width: 1),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Row(children: [
+                Icon(expanded ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_right, size: 14, color: color),
+                const SizedBox(width: 4),
+                Text('${disc.displayName} (${badges.length})', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 11, fontWeight: FontWeight.w700, color: color)),
+              ]),
+            ),
+          ),
         ),
       ));
       if (!expanded) continue;
-      for (final b in badges) {
-        final id = b.badgeId.toString();
-        final selected = _selectedId == id;
-        final alreadyAdded = state.hasGoalBadge(b.badgeId);
-        items.add(GestureDetector(
-          onTap: alreadyAdded ? null : () => setState(() { _selectedId = id; _errorMessage = null; }),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 1),
-            color: selected ? AppTokens.primary.withValues(alpha: 0.15) : Colors.transparent,
-            child: Row(children: [
-              Container(width: 3, height: 14, color: color),
-              const SizedBox(width: 6),
-              Expanded(child: Text(b.displayName, style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 12, fontWeight: selected ? FontWeight.w600 : FontWeight.w400, color: alreadyAdded ? AppTokens.keyOff : AppTokens.textPrimary))),
-              if (alreadyAdded) Text('Added', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 10, color: AppTokens.keyOff)),
-            ]),
-          ),
-        ));
-      }
+      slivers.add(SliverList(
+        delegate: SliverChildBuilderDelegate(
+          (context, index) {
+            final b = badges[index];
+            final id = b.badgeId.toString();
+            final selected = _selectedId == id;
+            final alreadyAdded = state.hasGoalBadge(b.badgeId);
+            return GestureDetector(
+              onTap: alreadyAdded ? null : () => setState(() { _selectedId = id; _errorMessage = null; }),
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: selected ? AppTokens.primary.withValues(alpha: 0.15) : AppTokens.surfaceAlt,
+                  border: Border.all(color: selected ? AppTokens.primary.withValues(alpha: 0.3) : AppTokens.cardBorder, width: 0.5),
+                  borderRadius: BorderRadius.circular(3),
+                ),
+                child: Row(children: [
+                  Container(width: 2, height: 12, color: color),
+                  const SizedBox(width: 6),
+                  Expanded(child: Text(b.displayName, style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 11, fontWeight: selected ? FontWeight.w600 : FontWeight.w400, color: alreadyAdded ? AppTokens.keyOff : AppTokens.textPrimary))),
+                  if (alreadyAdded) Text('Added', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 10, color: AppTokens.keyOff)),
+                ]),
+              ),
+            );
+          },
+          childCount: badges.length,
+        ),
+      ));
     }
-    return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: items);
+    return CustomScrollView(slivers: slivers);
   }
 
-  // ── Moves list – collapsible by AnimGroup ──
+  // ── Moves list – collapsible by AnimGroup (sliver pinned headers) ──
   Widget _buildMovesList(String query) {
-    final items = <Widget>[];
+    // Compute last expanded group key
+    String? lastExpandedGroup;
     for (final tab in loader.animTabs) {
       for (final group in tab.groups) {
         final anims = query.isEmpty
@@ -721,39 +799,75 @@ class _GoalAddDialogContentState extends State<_GoalAddDialogContent> {
             : group.anims.where((a) => a.getDisplayName().toLowerCase().contains(query)).toList();
         if (anims.isEmpty) continue;
         final key = '${tab.tabId}__${group.animType}__${group.getDisplayName()}';
-        final expanded = _expandedGroups.contains(key);
-        // Group header
-        items.add(GestureDetector(
-          onTap: () => setState(() { expanded ? _expandedGroups.remove(key) : _expandedGroups.add(key); }),
-          child: Padding(
-            padding: const EdgeInsets.only(left: 4, top: 0, bottom: 2),
-            child: Row(children: [
-              Icon(expanded ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_right, size: 14, color: AppTokens.textSecondary),
-              const SizedBox(width: 2),
-              Expanded(child: Text('${group.getDisplayName()} (${anims.length})', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 11, fontWeight: FontWeight.w700, color: AppTokens.textSecondary))),
-            ]),
-          ),
-        ));
-        if (!expanded) continue;
-        for (final a in anims) {
-          final selected = _selectedId == a.animId;
-          final alreadyAdded = state.hasGoalMove(a.animId);
-          items.add(GestureDetector(
-            onTap: alreadyAdded ? null : () => setState(() { _selectedId = a.animId; _errorMessage = null; }),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 1),
-              color: selected ? AppTokens.primary.withValues(alpha: 0.15) : Colors.transparent,
-              child: Row(children: [
-                Expanded(child: Text(a.getDisplayName(), style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 12, fontWeight: selected ? FontWeight.w600 : FontWeight.w400, color: alreadyAdded ? AppTokens.keyOff : AppTokens.textPrimary))),
-                if (alreadyAdded) Text('Added', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 10, color: AppTokens.keyOff)),
-              ]),
-            ),
-          ));
+        if (_expandedGroups.contains(key)) {
+          lastExpandedGroup = key;
         }
       }
     }
-    if (items.isEmpty) return Center(child: Text('No results', style: AppTokens.caption));
-    return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: items);
+    final slivers = <Widget>[];
+    for (final tab in loader.animTabs) {
+      for (final group in tab.groups) {
+        var anims = query.isEmpty
+            ? group.anims
+            : group.anims.where((a) => a.getDisplayName().toLowerCase().contains(query)).toList();
+        final key = '${tab.tabId}__${group.animType}__${group.getDisplayName()}';
+        final expanded = _expandedGroups.contains(key);
+        if (anims.isEmpty) continue;
+        slivers.add(SliverPersistentHeader(
+          pinned: expanded && key == lastExpandedGroup,
+          delegate: _CategoryHeaderDelegate(
+            expanded: expanded,
+            child: GestureDetector(
+              onTap: () => setState(() { expanded ? _expandedGroups.remove(key) : _expandedGroups.add(key); }),
+              child: Container(
+                margin: const EdgeInsets.only(left: 2, top: 2, bottom: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                clipBehavior: Clip.none,
+                decoration: BoxDecoration(
+                  color: AppTokens.textSecondary.withValues(alpha: 0.08),
+                  border: Border.all(color: AppTokens.textSecondary.withValues(alpha: 0.3), width: 1),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Row(children: [
+                  Icon(expanded ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_right, size: 14, color: AppTokens.textSecondary),
+                  const SizedBox(width: 4),
+                  Expanded(child: Text('${group.getDisplayName()} (${anims.length})', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 11, fontWeight: FontWeight.w700, color: AppTokens.textSecondary))),
+                ]),
+              ),
+            ),
+          ),
+        ));
+        if (!expanded) continue;
+        slivers.add(SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (context, index) {
+              final a = anims[index];
+              final selected = _selectedId == a.animId;
+              final alreadyAdded = state.hasGoalMove(a.animId);
+              return GestureDetector(
+                onTap: alreadyAdded ? null : () => setState(() { _selectedId = a.animId; _errorMessage = null; }),
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 2),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: selected ? AppTokens.primary.withValues(alpha: 0.15) : AppTokens.surfaceAlt,
+                    border: Border.all(color: selected ? AppTokens.primary.withValues(alpha: 0.3) : AppTokens.cardBorder, width: 0.5),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                  child: Row(children: [
+                    Expanded(child: Text(a.getDisplayName(), style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 11, fontWeight: selected ? FontWeight.w600 : FontWeight.w400, color: alreadyAdded ? AppTokens.keyOff : AppTokens.textPrimary))),
+                    if (alreadyAdded) Text('Added', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 10, color: AppTokens.keyOff)),
+                  ]),
+                ),
+              );
+            },
+            childCount: anims.length,
+          ),
+        ));
+      }
+    }
+    if (slivers.isEmpty) return Center(child: Text('No results', style: AppTokens.caption));
+    return CustomScrollView(slivers: slivers);
   }
 
   // ── Attributes list ──
@@ -773,8 +887,13 @@ class _GoalAddDialogContentState extends State<_GoalAddDialogContent> {
         return GestureDetector(
           onTap: alreadyAdded ? null : () => setState(() { _selectedId = id; _errorMessage = null; }),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 1),
-            color: selected ? AppTokens.primary.withValues(alpha: 0.15) : Colors.transparent,
+            margin: const EdgeInsets.only(bottom: 3),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: selected ? AppTokens.primary.withValues(alpha: 0.15) : AppTokens.surfaceAlt,
+              border: Border.all(color: selected ? AppTokens.primary.withValues(alpha: 0.4) : AppTokens.cardBorder, width: 0.5),
+              borderRadius: BorderRadius.circular(AppTokens.radius),
+            ),
             child: Row(children: [
               Container(width: 3, height: 14, color: color),
               const SizedBox(width: 6),

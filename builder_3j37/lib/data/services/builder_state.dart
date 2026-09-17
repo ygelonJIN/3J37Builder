@@ -387,7 +387,7 @@ class BuilderState extends ChangeNotifier {
     final capsMap = website_logic.getCaps(body, _loader);
     return List.generate(21, (i) => capsMap[website_logic.attrIds[i]] ?? 99);
   }
-  List<int> getTokenBudget() => _loader.getTokenBudget(_heightInches, _ratings);
+  List<int> getTokenBudget() => _loader.getTokenBudget(_position.name.toUpperCase(), _heightInches, _ratings);
 
   List<int> getTokensSpent() {
     final spent = List.filled(6, 0);

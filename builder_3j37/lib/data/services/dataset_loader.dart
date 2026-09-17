@@ -8,6 +8,7 @@ import '../models/takeover_data.dart';
 import '../models/animation_data.dart';
 import 'tuning_parser.dart';
 import 'website_logic.dart' as website_logic;
+import 'dart:math' as math;
 
 // ============================================================
 // Data model classes for cap_breaker_model.json new fields
@@ -283,6 +284,9 @@ class DatasetLoader {
   Map<TokenCostKey, int> tokenCostMap = {};
   Map<TokenKey, TokenContribution> tokenContribMap = {};
   List<TakeoverAbility> takeovers = [];
+
+  /// Slot allocation lookup: "height|values_hash" key -> slots
+  Map<String, List<int>> _slotAllocByKey = {};
   List<AnimTab> animTabs = [];
 
   // Cap Breakers 数据
@@ -314,6 +318,9 @@ class DatasetLoader {
 
   /// Badge token model (tunings + costs)
   BadgeTokenModelData? badgeTokenModelData;
+
+  /// Tuning lookup by "position|height" key for fast token calculation
+  Map<String, BadgeTokenTuning> _tokenTuningMap = {};
 
   /// Takeover model (takeovers with requirements)
   TakeoverModelData? takeoverModelData;
@@ -507,7 +514,11 @@ class DatasetLoader {
           tunings: tuningsList,
           costs: costsMap,
         );
-        debugPrint('[DatasetLoader] badgeTokenModel loaded: ${tuningsList.length} tunings, ${costsMap.length} cost entries');
+        // Build tuning lookup map
+        for (final t in tuningsList) {
+          _tokenTuningMap['${t.position}|${t.height}'] = t;
+        }
+        debugPrint('[DatasetLoader] badgeTokenModel loaded: ${tuningsList.length} tunings, ${costsMap.length} cost entries, ${_tokenTuningMap.length} tuning keys');
       }
 
       // NEW: takeoverModel (takeovers)
@@ -554,6 +565,26 @@ class DatasetLoader {
     }
 
     _heavyLoaded = true;
+    // Load slot allocations
+    try {
+      final slotStr = await rootBundle.loadString('assets/data/slot_allocations.json');
+      final slotJson = json.decode(slotStr) as Map<String, dynamic>;
+      final slotList = slotJson['data'] as List;
+      final byKey = <String, List<int>>{};
+      for (final r in slotList) {
+        final h = r['height_inches'] as int;
+        final vals = (r['values'] as List).cast<int>();
+        final sl = (r['slots'] as List).cast<int>();
+        // Use attribute values hash as key
+        final key = '$h|${vals.join(',')}';
+        byKey[key] = sl;
+      }
+      _slotAllocByKey = byKey;
+      debugPrint('[DatasetLoader] slot_allocations loaded: ${slotList.length} records, ${byKey.length} unique keys');
+    } catch (e) {
+      debugPrint('[DatasetLoader] slot_allocations ERROR (non-fatal): $e');
+    }
+
     debugPrint('[DatasetLoader] loadHeavy DONE');
   }
 
@@ -703,16 +734,55 @@ class DatasetLoader {
     return List.generate(21, (i) => capsMap[website_logic.attrIds[i]] ?? 99);
   }
 
-  List<int> getTokenBudget(int heightInches, List<int> ratings) {
+  /// Round half even (银行家舍入) — 与网站 H 函数完全一致
+  /// 网站: function H(e){const t=Math.floor(e),n=e-t;return n<.5?t:n>.5?t+1:t%2===0?t:t+1}
+  static int _roundHalfEven(double x) {
+    final t = x.floor();
+    final n = x - t;
+    if (n < 0.5) return t;
+    if (n > 0.5) return t + 1;
+    return t % 2 == 0 ? t : t + 1;
+  }
+
+  /// Discipline name to index map
+  static const _disciplineIndex = {
+    'finishing': 0, 'shooting': 1, 'playmaking': 2,
+    'defense': 3, 'rebounding': 4, 'physical': 5,
+  };
+
+  /// Attribute name to index map (matches ATTRIBUTES_RAW order)
+  static const _attrNameToIndex = {
+    'closeShot': 0, 'layup': 1, 'drivingDunk': 2, 'standingDunk': 3,
+    'postControl': 4, 'midRange': 5, 'threePoint': 6, 'freeThrow': 7,
+    'passAccuracy': 8, 'ballHandle': 9, 'speedWithBall': 10,
+    'interiorDefense': 11, 'perimeterDefense': 12, 'steal': 13, 'block': 14,
+    'offensiveRebound': 15, 'defensiveRebound': 16, 'speed': 17, 'agility': 18,
+    'strength': 19, 'vertical': 20,
+  };
+
+  /// Calculate badge token budget using the exact website formula:
+  /// For each attribute, tokens[discipline] += H((value - baseline) / rate)
+  /// where H is round-half-down.
+  /// Tunings are position+height specific from badgeTokenModel.
+  List<int> getTokenBudget(String position, int heightInches, List<int> ratings) {
     final budget = List.filled(6, 0);
-    for (int i = 0; i < 21; i++) {
-      final key = TokenKey(heightInches, i, ratings[i]);
-      final contrib = tokenContribMap[key];
-      if (contrib != null) {
-        for (int d = 0; d < 6; d++) {
-          budget[d] += contrib.tokens[d];
-        }
-      }
+    final tuning = _tokenTuningMap['$position|$heightInches'];
+    if (tuning == null) return budget;
+
+    for (final attrName in tuning.attrNames) {
+      final rate = tuning.rate[attrName] ?? 0;
+      if (rate <= 0) continue;
+      final attrIdx = _attrNameToIndex[attrName];
+      if (attrIdx == null) continue;
+      final value = ratings[attrIdx];
+      final baseline = tuning.baseline[attrName] ?? 0;
+      final diff = value - baseline;
+      if (diff <= 0) continue;
+      final discName = tuning.discipline[attrName];
+      if (discName == null) continue;
+      final discIdx = _disciplineIndex[discName];
+      if (discIdx == null) continue;
+      budget[discIdx] += _roundHalfEven(diff / rate);
     }
     return budget;
   }
@@ -726,36 +796,199 @@ class DatasetLoader {
     return website_logic.calculateOvr(values, body, this);
   }
 
+  /// 获取徽章最高等级 — 使用 badgeModelData，与网站 pe 函数完全一致
+  /// 网站: function pe(e,t){const n=N;...const i=Math.trunc(Number(t.height))-n.heightBase;
+  ///   return n.badges.map(r=>{...let o=0;for(let u=0;u<math.min(5,s);u+=1)
+  ///   me(r.levels[u],e)&&(o=u+1);...})}
   BadgeTier? getHighestQualifiedTier(int badgeId, List<int> ratings) {
-    final tiers = [BadgeTier.hallOfFame, BadgeTier.gold, BadgeTier.silver, BadgeTier.bronze];
-    for (final tier in tiers) {
-      if (_meetsTierRequirements(badgeId, tier, ratings)) return tier;
+    if (badgeModelData == null) return null;
+    // 通过 badgeId 找到对应的徽章名称
+    final def = badgeDefinitions.where((b) => b.badgeId == badgeId);
+    if (def.isEmpty) return null;
+    final badgeName = def.first.name;
+    // 在 badgeModelData 中查找匹配的徽章
+    ModelBadge? modelBadge;
+    for (final b in badgeModelData!.badges) {
+      if (_normalizeName(b.name) == _normalizeName(badgeName)) {
+        modelBadge = b;
+        break;
+      }
     }
-    return null;
+    if (modelBadge == null) return null;
+    return _getHighestTierFromModel(modelBadge, ratings);
   }
 
-  bool _meetsTierRequirements(int badgeId, BadgeTier tier, List<int> ratings) {
-    final reqs = tierRequirements.where((r) => r.badgeId == badgeId && r.tier == tier);
-    if (reqs.isEmpty) return false;
-    for (final req in reqs) {
-      bool result = true;
-      for (int i = 0; i < req.requirements.length; i++) {
-        final r = req.requirements[i];
-        final meets = ratings[r.attributeIndex] >= r.minimum;
-        if (i == 0) {
-          result = meets;
-        } else {
-          final prevOp = req.requirements[i - 1].operatorToNext;
-          if (prevOp == 'AND') { result = result && meets; }
-          else if (prevOp == 'OR') { result = result || meets; }
-        }
+  /// 根据 badgeModel 中的徽章定义和属性值计算最高等级
+  /// 与网站 pe 函数逻辑完全一致:
+  /// let o=0; for(let u=0;u<math.min(5,s);u+=1) me(r.levels[u],e)&&(o=u+1);
+  BadgeTier? _getHighestTierFromModel(ModelBadge badge, List<int> ratings) {
+    // 使用默认最大等级5（无身高限制时）
+    const maxLevel = 5;
+    int highestLevel = 0;
+    for (int level = 0; level < math.min(5, maxLevel); level++) {
+      if (level >= badge.levels.length) break;
+      final reqs = badge.levels[level];
+      if (reqs.isEmpty) continue; // 空需求=自动满足
+      if (_meetsRequirements(reqs, ratings)) {
+        highestLevel = level + 1;
       }
-      if (result) return true;
     }
-    return false;
+    if (highestLevel <= 0) return null;
+    const tierMap = [BadgeTier.bronze, BadgeTier.silver, BadgeTier.gold, BadgeTier.hallOfFame];
+    return highestLevel <= tierMap.length ? tierMap[highestLevel - 1] : BadgeTier.hallOfFame;
+  }
+
+  /// 考虑身高限制的版本（用于 getBadgeStatuses 等需要身高的场景）
+  BadgeTier? getHighestQualifiedTierWithHeight(int badgeId, List<int> ratings, int heightInches) {
+    if (badgeModelData == null) return getHighestQualifiedTier(badgeId, ratings);
+    final def = badgeDefinitions.where((b) => b.badgeId == badgeId);
+    if (def.isEmpty) return null;
+    final badgeName = def.first.name;
+    ModelBadge? modelBadge;
+    for (final b in badgeModelData!.badges) {
+      if (_normalizeName(b.name) == _normalizeName(badgeName)) {
+        modelBadge = b;
+        break;
+      }
+    }
+    if (modelBadge == null) return null;
+    // 身高限制: s = i>=0&&i<n.heightCount ? r.heightMaxLevels[i] : 5
+    final heightIdx = heightInches - badgeModelData!.heightBase;
+    final maxLevel = (heightIdx >= 0 && heightIdx < badgeModelData!.heightCount)
+        ? modelBadge.heightMaxLevels[heightIdx]
+        : 5;
+    if (maxLevel <= 0) return null;
+    int highestLevel = 0;
+    for (int level = 0; level < maxLevel.clamp(0, 5); level++) {
+      if (level >= modelBadge.levels.length) break;
+      final reqs = modelBadge.levels[level];
+      if (reqs.isEmpty) continue;
+      if (_meetsRequirements(reqs, ratings)) {
+        highestLevel = level + 1;
+      }
+    }
+    if (highestLevel <= 0) return null;
+    const tierMap = [BadgeTier.bronze, BadgeTier.silver, BadgeTier.gold, BadgeTier.hallOfFame];
+    return highestLevel <= tierMap.length ? tierMap[highestLevel - 1] : BadgeTier.hallOfFame;
+  }
+
+  static String _normalizeName(String name) {
+    return name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
   }
 
   int getBadgeTokenCost(int badgeId, BadgeTier tier, int heightInches) {
     return tokenCostMap[TokenCostKey(badgeId, tier, heightInches)] ?? 0;
+  }
+
+  /// 计算各学科的徽章槽位数 — 与网站逻辑完全一致
+  /// 网站通过 badgeModel 计算每个徽章的最高等级，然后按学科统计
+  /// 返回6个值 [finishing, shooting, playmaking, defense, rebounding, physical]
+  List<int> getSlotBudget(String position, int heightInches, List<int> ratings) {
+    if (badgeModelData == null) return [4, 4, 4, 4, 1, 3];
+    final counts = List.filled(6, 0);
+    final heightIdx = heightInches - badgeModelData!.heightBase;
+    final maxLevelLimit = (heightIdx >= 0 && heightIdx < badgeModelData!.heightCount)
+        ? 5 : 5; // 无身高限制时默认5
+
+    for (final badge in badgeModelData!.badges) {
+      // 检查身高限制
+      final badgeMaxLevel = (heightIdx >= 0 && heightIdx < badgeModelData!.heightCount)
+          ? badge.heightMaxLevels[heightIdx]
+          : 5;
+      if (badgeMaxLevel <= 0) continue;
+
+      // 检查是否满足任一等级需求
+      bool qualifies = false;
+      for (int level = 0; level < badgeMaxLevel.clamp(0, 5); level++) {
+        if (level >= badge.levels.length) break;
+        final reqs = badge.levels[level];
+        if (reqs.isEmpty) continue;
+        if (_meetsRequirements(reqs, ratings)) {
+          qualifies = true;
+          break;
+        }
+      }
+      if (!qualifies) continue;
+
+      final discIdx = _disciplineIndex[badge.category];
+      if (discIdx != null) counts[discIdx]++;
+    }
+    return counts;
+  }
+
+  /// Count qualified badges per discipline for given attribute values.
+  /// A badge qualifies at any tier if it meets at least one tier's requirements.
+  List<int> _countQualifiedBadges(int heightInches, List<int> ratings) {
+    final counts = List.filled(6, 0);
+    if (badgeModelData == null) return counts;
+    final heightIdx = heightInches - badgeModelData!.heightBase;
+    if (heightIdx < 0 || heightIdx >= badgeModelData!.heightCount) return counts;
+
+    for (final badge in badgeModelData!.badges) {
+      final maxLevel = badge.heightMaxLevels[heightIdx];
+      if (maxLevel <= 0) continue;
+      final discIdx = _disciplineIndex[badge.category];
+      if (discIdx == null) continue;
+
+      bool qualifies = false;
+      // Check each tier from highest to lowest
+      for (int tier = maxLevel - 1; tier >= 0; tier--) {
+        if (tier >= badge.levels.length) continue;
+        final reqs = badge.levels[tier];
+        if (reqs.isEmpty) continue;
+        if (_meetsRequirements(reqs, ratings)) {
+          qualifies = true;
+          break;
+        }
+      }
+      if (qualifies) counts[discIdx]++;
+    }
+    return counts;
+  }
+
+  /// 检查属性是否满足徽章需求列表 — 与网站 me 函数完全一致
+  /// 网站: function me(e,t){if(!e.length)return!1;let n=!1,i=!1;for(const r of e){...}}
+  /// operator: 0=OR(累积或组), 1=AND(检查并重置), 2=BREAK(检查并终止)
+  bool _meetsRequirements(List<List<int>> reqs, List<int> ratings) {
+    if (reqs.isEmpty) return false;
+    bool orGroupSatisfied = false;
+    bool hasConditions = false;
+    for (final req in reqs) {
+      final attrIdx = req[0];
+      final minimum = req[1];
+      final operator = req.length > 2 ? req[2] : 0;
+      final meets = attrIdx >= 0 && attrIdx < ratings.length &&
+          ratings[attrIdx] >= minimum;
+      orGroupSatisfied = orGroupSatisfied || meets;
+      hasConditions = true;
+      if (operator != 0) {
+        if (!orGroupSatisfied) return false;
+        orGroupSatisfied = false;
+        hasConditions = false;
+        if (operator == 2) break;
+      }
+    }
+    return !hasConditions || orGroupSatisfied;
+  }
+
+  /// Compute token budget for raw attribute values using a specific tuning
+  List<int> _computeTokenBudgetForTuning(BadgeTokenTuning tuning, List<int> values) {
+    final budget = List.filled(6, 0);
+    for (final attrName in tuning.attrNames) {
+      final rate = tuning.rate[attrName] ?? 0;
+      if (rate <= 0) continue;
+      final attrIdx = _attrNameToIndex[attrName];
+      if (attrIdx == null) continue;
+      final value = values[attrIdx];
+      final baseline = tuning.baseline[attrName] ?? 0;
+      final diff = value - baseline;
+      if (diff <= 0) continue;
+      final discName = tuning.discipline[attrName];
+      if (discName == null) continue;
+      final discIdx = _disciplineIndex[discName];
+      if (discIdx == null) continue;
+      budget[discIdx] += _roundHalfEven(diff / rate);
+    }
+    return budget;
   }
 }

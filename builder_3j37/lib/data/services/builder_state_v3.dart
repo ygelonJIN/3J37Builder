@@ -249,7 +249,71 @@ class BuilderStateV3 extends ChangeNotifier {
     if (floor != null && newValue < floor) {
       return "Remove Goal First";
     }
+    // Check if lowering would violate locked attribute constraints
+    if (newValue < _baseRatings[attrIndex] && _lockedAttributes.isNotEmpty) {
+      final lockFloor = _getMinimumValueDueToLocks(attrIndex);
+      if (lockFloor != null && newValue < lockFloor) {
+        // Find which locked attribute causes this constraint
+        final lockedName = _getBlockingLockedAttributeName(attrIndex);
+        if (lockedName != null) {
+          return '$lockedName is Locked';
+        }
+        return 'Locked Attribute';
+      }
+    }
     return null;
+  }
+
+  /// Get the minimum value for an attribute due to locked attribute constraints
+  int? _getMinimumValueDueToLocks(int attrIndex) {
+    if (_lockedAttributes.isEmpty) return null;
+    final hIdx = _heightInches - 64;
+    int floor = 25;
+
+    for (final lockedIdx in _lockedAttributes) {
+      if (lockedIdx == attrIndex) continue;
+      final srcName = TuningParser.nativeNames[lockedIdx];
+      final constraints = _loader.tuning.associatedConstraints[srcName]?[hIdx];
+      if (constraints == null) continue;
+      for (final c in constraints) {
+        if (c.targetAttr.isEmpty) continue;
+        final ti = TuningParser.nativeNames.indexOf(c.targetAttr);
+        if (ti != attrIndex) continue;
+        // Constraint: attrIndex >= lockedValue - maxDelta
+        final minVal = _baseRatings[lockedIdx] - c.maxDelta;
+        if (minVal > floor) floor = minVal;
+      }
+    }
+
+    return floor > 25 ? floor : null;
+  }
+
+  /// Get the name of the locked attribute that blocks lowering of attrIndex
+  String? _getBlockingLockedAttributeName(int attrIndex) {
+    if (_lockedAttributes.isEmpty) return null;
+    final hIdx = _heightInches - 64;
+    String? blockingName;
+    int highestFloor = 25;
+
+    for (final lockedIdx in _lockedAttributes) {
+      if (lockedIdx == attrIndex) continue;
+      final srcName = TuningParser.nativeNames[lockedIdx];
+      final constraints = _loader.tuning.associatedConstraints[srcName]?[hIdx];
+      if (constraints == null) continue;
+      for (final c in constraints) {
+        if (c.targetAttr.isEmpty) continue;
+        final ti = TuningParser.nativeNames.indexOf(c.targetAttr);
+        if (ti != attrIndex) continue;
+        final minVal = _baseRatings[lockedIdx] - c.maxDelta;
+        if (minVal > highestFloor) {
+          highestFloor = minVal;
+          final attr = _loader.attributes[lockedIdx];
+          blockingName = attr.displayName;
+        }
+      }
+    }
+
+    return blockingName;
   }
   void setPosition(Position pos) {
     if (_position == pos) return;
@@ -330,6 +394,8 @@ class BuilderStateV3 extends ChangeNotifier {
   void _propagateDown(int attrIndex, int newValue) {
     final hIdx = _heightInches - 64;
     for (int si = 0; si < 21; si++) {
+      // Skip locked attributes - they should never be modified by constraint propagation
+      if (_lockedAttributes.contains(si)) continue;
       final srcName = TuningParser.nativeNames[si];
       final constraints = _loader.tuning.associatedConstraints[srcName]?[hIdx];
       if (constraints == null) continue;
@@ -347,9 +413,20 @@ class BuilderStateV3 extends ChangeNotifier {
   }
 
   void _applyConstraintsAndOvrBudget(int changedIndex, int oldValue) {
+    // Save locked attribute values before applying constraints
+    final lockedValues = <int, int>{};
+    for (final idx in _lockedAttributes) {
+      lockedValues[idx] = _baseRatings[idx];
+    }
+
     final constrained = _loader.tuning.applyConstraints(_heightInches, _baseRatings);
     for (int i = 0; i < 21; i++) {
       _baseRatings[i] = constrained[i].clamp(25, _physicalCaps[i]);
+    }
+
+    // Restore locked attributes to their original values
+    for (final entry in lockedValues.entries) {
+      _baseRatings[entry.key] = entry.value;
     }
 
     // Check overall rating budget using base ratings only
@@ -360,6 +437,10 @@ class BuilderStateV3 extends ChangeNotifier {
       final revertedConstrained = _loader.tuning.applyConstraints(_heightInches, _baseRatings);
       for (int i = 0; i < 21; i++) {
         _baseRatings[i] = revertedConstrained[i].clamp(25, _physicalCaps[i]);
+      }
+      // Restore locked attributes again after revert
+      for (final entry in lockedValues.entries) {
+        _baseRatings[entry.key] = entry.value;
       }
     }
   }
@@ -440,7 +521,8 @@ class BuilderStateV3 extends ChangeNotifier {
   }
 
   List<int> getAttributeCaps() => _loader.getAttributeCaps(_position, _heightInches, _weightLb, _wingspanInches);
-  List<int> getTokenBudget() => _loader.getTokenBudget(_heightInches, _finalRatings);
+  List<int> getTokenBudget() => _loader.getTokenBudget(_position.name.toUpperCase(), _heightInches, _finalRatings);
+  List<int> getSlotBudget() => _loader.getSlotBudget(_position.name.toUpperCase(), _heightInches, _finalRatings);
 
   List<int> getTokensSpent() {
     final spent = List.filled(6, 0);
@@ -695,6 +777,11 @@ class BuilderStateV3 extends ChangeNotifier {
 
     // Actually apply the goal value to _baseRatings and trigger constraint propagation
     final attrIndex = attr.attributeIndex;
+    // Don't modify locked attributes
+    if (_lockedAttributes.contains(attrIndex)) {
+      notifyListeners();
+      return;
+    }
     final goalValue = attr.targetValue.clamp(25, _physicalCaps[attrIndex]);
     final oldValue = _baseRatings[attrIndex];
     _baseRatings[attrIndex] = goalValue;
@@ -756,6 +843,8 @@ class BuilderStateV3 extends ChangeNotifier {
       if (_goalData.attributes.any((a) => a.attributeIndex == attrIndex)) continue;
 
       // Only apply if the requirement is higher than current rating
+      // Don't modify locked attributes
+      if (_lockedAttributes.contains(attrIndex)) continue;
       if (_baseRatings[attrIndex] < requiredValue || !_goalActive.contains(attrIndex)) {
         _goalActive.add(attrIndex);
         _goalRatings[attrIndex] = requiredValue;
