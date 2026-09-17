@@ -278,46 +278,35 @@ class _AttributeControlState extends State<_AttributeControl> {
                   ),
                 )
               else if (widget.isGoalActive) ...[
-                // GOAL-locked: show goal value and GOAL indicator
-                Text(
-                  '${widget.goalValue ?? widget.value}',
-                  style: TextStyle(
-                    fontFamily: AppTokens.fontFamily,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: AppTokens.primary,
+                // GOAL: show like error message style - gold color, no plus/minus, no X/Y
+                Padding(
+                  padding: const EdgeInsets.only(right: 16),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'GOAL',
+                        style: TextStyle(
+                          fontFamily: AppTokens.fontFamily,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: AppTokens.primary,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '${widget.goalValue ?? widget.value}',
+                        style: TextStyle(
+                          fontFamily: AppTokens.fontFamily,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: AppTokens.primary,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                Text(
-                  '/${widget.cap}',
-                  style: TextStyle(
-                    fontFamily: AppTokens.fontFamily,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w300,
-                    color: AppTokens.keyOff,
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                  decoration: BoxDecoration(
-                    color: AppTokens.primary.withValues(alpha: 0.15),
-                    border: Border.all(color: AppTokens.primary.withValues(alpha: 0.5), width: 0.5),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                  child: Text(
-                    'GOAL',
-                    style: TextStyle(
-                      fontFamily: AppTokens.fontFamily,
-                      fontSize: 8,
-                      fontWeight: FontWeight.w700,
-                      color: AppTokens.primary,
-                      letterSpacing: 1,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Icon(Icons.lock, size: 14, color: AppTokens.primary),
               ]
               else ...[
                 PlusMinusControl(
@@ -337,6 +326,8 @@ class _AttributeControlState extends State<_AttributeControl> {
                     final error = widget.validateChanged?.call(baseValue);
                     if (error == null) {
                       widget.onChanged(baseValue);
+                    } else {
+                      _showError(error);
                     }
                   } : null,
                   activeColor: widget.colour,

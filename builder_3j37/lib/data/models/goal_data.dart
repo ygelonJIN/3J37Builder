@@ -25,6 +25,34 @@ class GoalData {
   int get badgeCount => badges.length;
   int get moveCount => moves.length;
   int get attributeCount => attributes.length;
+
+  /// Get the maximum attribute requirements across all badges and moves
+  /// Returns a map of attributeIndex -> maximum required value
+  Map<int, int> getAttributeRequirements() {
+    final requirements = <int, int>{};
+    
+    // Collect requirements from badges
+    for (final badge in badges) {
+      for (final req in badge.attributeRequirements) {
+        final current = requirements[req.attributeIndex] ?? 0;
+        if (req.minimum > current) {
+          requirements[req.attributeIndex] = req.minimum;
+        }
+      }
+    }
+    
+    // Collect requirements from moves
+    for (final move in moves) {
+      for (final req in move.attributeRequirements) {
+        final current = requirements[req.attributeIndex] ?? 0;
+        if (req.minimum > current) {
+          requirements[req.attributeIndex] = req.minimum;
+        }
+      }
+    }
+    
+    return requirements;
+  }
 }
 
 /// Represents a badge goal with a target tier
@@ -33,12 +61,14 @@ class GoalBadge {
   final String badgeName;
   final String tier;
   final int targetValue;
+  final List<GoalAttributeRequirement> attributeRequirements;
 
   const GoalBadge({
     required this.badgeId,
     required this.badgeName,
     required this.tier,
     required this.targetValue,
+    this.attributeRequirements = const [],
   });
 
   GoalBadge copyWith({
@@ -46,12 +76,14 @@ class GoalBadge {
     String? badgeName,
     String? tier,
     int? targetValue,
+    List<GoalAttributeRequirement>? attributeRequirements,
   }) {
     return GoalBadge(
       badgeId: badgeId ?? this.badgeId,
       badgeName: badgeName ?? this.badgeName,
       tier: tier ?? this.tier,
       targetValue: targetValue ?? this.targetValue,
+      attributeRequirements: attributeRequirements ?? this.attributeRequirements,
     );
   }
 
@@ -72,12 +104,14 @@ class GoalMove {
   final String moveName;
   final String category;
   final int targetValue;
+  final List<GoalAttributeRequirement> attributeRequirements;
 
   const GoalMove({
     required this.moveId,
     required this.moveName,
     required this.category,
     required this.targetValue,
+    this.attributeRequirements = const [],
   });
 
   GoalMove copyWith({
@@ -85,12 +119,14 @@ class GoalMove {
     String? moveName,
     String? category,
     int? targetValue,
+    List<GoalAttributeRequirement>? attributeRequirements,
   }) {
     return GoalMove(
       moveId: moveId ?? this.moveId,
       moveName: moveName ?? this.moveName,
       category: category ?? this.category,
       targetValue: targetValue ?? this.targetValue,
+      attributeRequirements: attributeRequirements ?? this.attributeRequirements,
     );
   }
 
@@ -133,6 +169,41 @@ class GoalAttribute {
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is GoalAttribute &&
+          runtimeType == other.runtimeType &&
+          attributeIndex == other.attributeIndex;
+
+  @override
+  int get hashCode => attributeIndex.hashCode;
+}
+
+/// Represents an attribute requirement for a badge or move
+class GoalAttributeRequirement {
+  final int attributeIndex;
+  final String attributeName;
+  final int minimum;
+
+  const GoalAttributeRequirement({
+    required this.attributeIndex,
+    required this.attributeName,
+    required this.minimum,
+  });
+
+  GoalAttributeRequirement copyWith({
+    int? attributeIndex,
+    String? attributeName,
+    int? minimum,
+  }) {
+    return GoalAttributeRequirement(
+      attributeIndex: attributeIndex ?? this.attributeIndex,
+      attributeName: attributeName ?? this.attributeName,
+      minimum: minimum ?? this.minimum,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is GoalAttributeRequirement &&
           runtimeType == other.runtimeType &&
           attributeIndex == other.attributeIndex;
 

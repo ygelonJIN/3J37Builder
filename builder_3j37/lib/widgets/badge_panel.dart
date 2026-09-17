@@ -117,12 +117,12 @@ class _TokenBudgetRow extends StatelessWidget {
             '$totalRemaining/$totalBudget',
             style: TextStyle(
               fontFamily: AppTokens.fontFamily,
-              fontSize: 32,
+              fontSize: 30,
               fontWeight: FontWeight.w600,
               color: AppTokens.primary,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           Wrap(
             spacing: 16,
             runSpacing: 10,
@@ -137,7 +137,7 @@ class _TokenBudgetRow extends StatelessWidget {
                     disc.displayName,
                     style: TextStyle(
                       fontFamily: AppTokens.fontFamily,
-                      fontSize: 15,
+                      fontSize: 14,
                       fontWeight: FontWeight.w600,
                       color: colour,
                     ),

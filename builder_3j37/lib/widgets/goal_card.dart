@@ -56,17 +56,28 @@ class _GoalCardState extends State<GoalCard> {
             behavior: HitTestBehavior.opaque,
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 2),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text('GOAL', style: AppTokens.brandMark.copyWith(fontSize: 18, letterSpacing: 2, color: AppTokens.textSecondary)),
-                  const Spacer(),
-                  Text('Badges:$badgeCount', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 9, fontWeight: FontWeight.w500, color: AppTokens.textSecondary)),
-                  const SizedBox(width: 8),
-                  Text('Moves:$moveCount', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 9, fontWeight: FontWeight.w500, color: AppTokens.textSecondary)),
-                  const SizedBox(width: 8),
-                  Text('Attr:$attrCount', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 9, fontWeight: FontWeight.w500, color: AppTokens.textSecondary)),
-                  const SizedBox(width: 8),
-                  Icon(_expanded ? Icons.expand_less : Icons.expand_more, size: 16, color: AppTokens.textSecondary),
+                  Row(
+                    children: [
+                      Text('GOAL', style: AppTokens.brandMark.copyWith(fontSize: 18, letterSpacing: 2, color: AppTokens.textSecondary)),
+                      const Spacer(),
+                      Text('Badges:$badgeCount', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 9, fontWeight: FontWeight.w500, color: AppTokens.textSecondary)),
+                      const SizedBox(width: 8),
+                      Text('Moves:$moveCount', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 9, fontWeight: FontWeight.w500, color: AppTokens.textSecondary)),
+                      const SizedBox(width: 8),
+                      Text('Attr:$attrCount', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 9, fontWeight: FontWeight.w500, color: AppTokens.textSecondary)),
+                      const SizedBox(width: 8),
+                      Icon(_expanded ? Icons.expand_less : Icons.expand_more, size: 16, color: AppTokens.textSecondary),
+                    ],
+                  ),
+                  // Show attribute requirements summary
+                  if (goalData.badges.isNotEmpty || goalData.moves.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    _buildAttrReqsSummary(goalData),
+                  ],
                 ],
               ),
             ),
@@ -110,6 +121,41 @@ class _GoalCardState extends State<GoalCard> {
     );
   }
 
+  // ── Attribute requirements summary ─────────────────────────
+  Widget _buildAttrReqsSummary(GoalData goalData) {
+    final loader = DatasetLoader();
+    final combinedReqs = <int, int>{};
+    for (final entry in goalData.getAttributeRequirements().entries) {
+      combinedReqs[entry.key] = entry.value;
+    }
+    for (final attr in goalData.attributes) {
+      final existing = combinedReqs[attr.attributeIndex] ?? 0;
+      if (attr.targetValue > existing) {
+        combinedReqs[attr.attributeIndex] = attr.targetValue;
+      }
+    }
+    if (combinedReqs.isEmpty) return const SizedBox.shrink();
+    
+    final reqTexts = combinedReqs.entries.map((e) {
+      final attrName = loader.attributes[e.key].displayName;
+      return '$attrName ${e.value}';
+    }).toList();
+    
+    return Padding(
+      padding: const EdgeInsets.only(left: 4),
+      child: Text(
+        'Attr Reqs: ${reqTexts.join(", ")}',
+        style: TextStyle(
+          fontFamily: AppTokens.fontFamily,
+          fontSize: 8,
+          fontWeight: FontWeight.w400,
+          color: AppTokens.keyOff,
+        ),
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+  }
+
   // ── Section header ────────────────────────────────────────
   Widget _buildSectionHeader(String title) {
     return Padding(
@@ -144,64 +190,122 @@ class _GoalCardState extends State<GoalCard> {
 
   // ── Badge item row ────────────────────────────────────────
   Widget _buildBadgeItem(GoalBadge badge) {
-    final discipline = _inferDiscipline(badge.badgeName);
-    final color = AppTokens.disciplineColours[discipline] ?? AppTokens.textSecondary;
+    final attrReqs = badge.attributeRequirements;
+    final tierColors = {
+      'Bronze': const Color(0xFFCD7F32),
+      'Silver': const Color(0xFFC0C0C0),
+      'Gold': AppTokens.primary,
+      'Hall of Fame': const Color(0xFF9B59B6),
+      'Legend': const Color(0xFFE74C3C),
+    };
+    final tierColor = tierColors[badge.tier] ?? AppTokens.primary;
+    const darkGold = Color(0xFFB8860B);
     return Padding(
       padding: const EdgeInsets.only(bottom: 2),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
-            child: Text(
-              '${badge.badgeName}  ${badge.tier}',
-              style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 11, fontWeight: FontWeight.w500, color: color),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          GestureDetector(
-            onTap: () => context.read<BuilderStateV3>().removeGoalBadge(badge.badgeId),
-            child: Container(
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(
-                color: AppTokens.surface,
-                border: Border.all(color: AppTokens.primary.withValues(alpha: 0.5), width: 1),
-                borderRadius: BorderRadius.circular(AppTokens.radius),
+          Row(
+            children: [
+              Expanded(
+                child: Text.rich(
+                  TextSpan(children: [
+                    TextSpan(text: badge.badgeName, style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 11, fontWeight: FontWeight.w500, color: AppTokens.textSecondary)),
+                    TextSpan(text: '  ', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 11)),
+                    TextSpan(text: badge.tier, style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 11, fontWeight: FontWeight.w600, color: tierColor)),
+                  ]),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-              child: Icon(Icons.close, size: 14, color: AppTokens.primary),
-            ),
+              GestureDetector(
+                onTap: () => context.read<BuilderStateV3>().removeGoalBadge(badge.badgeId),
+                child: Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: AppTokens.surface,
+                    border: Border.all(color: AppTokens.primary.withValues(alpha: 0.5), width: 1),
+                    borderRadius: BorderRadius.circular(AppTokens.radius),
+                  ),
+                  child: Icon(Icons.close, size: 14, color: AppTokens.primary),
+                ),
+              ),
+            ],
           ),
+          if (attrReqs.isNotEmpty) ...[
+            const SizedBox(height: 2),
+            Padding(
+              padding: const EdgeInsets.only(left: 8),
+              child: _buildAttrReqsText(attrReqs),
+            ),
+          ],
         ],
       ),
     );
   }
 
+  // ── Attr reqs text with discipline colors ──────────────────
+  Widget _buildAttrReqsText(List<GoalAttributeRequirement> attrReqs) {
+    final loader = DatasetLoader();
+    final spans = <TextSpan>[];
+    for (int i = 0; i < attrReqs.length; i++) {
+      final r = attrReqs[i];
+      final attr = loader.attributes[r.attributeIndex];
+      final discColor = AppTokens.disciplineColours[attr.discipline.name] ?? AppTokens.textSecondary;
+      if (i > 0) spans.add(TextSpan(text: ', ', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 9)));
+      spans.add(TextSpan(
+        text: '${r.attributeName} ${r.minimum}',
+        style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 9, fontWeight: FontWeight.w500, color: discColor),
+      ));
+    }
+    return Text.rich(TextSpan(children: [
+      TextSpan(text: 'Attr: ', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 9, fontWeight: FontWeight.w400, color: AppTokens.textSecondary)),
+      ...spans,
+    ]), overflow: TextOverflow.ellipsis);
+  }
+
   // ── Move item row ─────────────────────────────────────────
   Widget _buildMoveItem(GoalMove move) {
     final color = AppTokens.textSecondary;
+    final attrReqs = move.attributeRequirements;
     return Padding(
       padding: const EdgeInsets.only(bottom: 2),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
-            child: Text(
-              '${move.moveName}  ${move.targetValue}',
-              style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 11, fontWeight: FontWeight.w500, color: color),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          GestureDetector(
-            onTap: () => context.read<BuilderStateV3>().removeGoalMove(move.moveId),
-            child: Container(
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(
-                color: AppTokens.surface,
-                border: Border.all(color: AppTokens.primary.withValues(alpha: 0.5), width: 1),
-                borderRadius: BorderRadius.circular(AppTokens.radius),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '${move.moveName}',
+                  style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 11, fontWeight: FontWeight.w500, color: color),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-              child: Icon(Icons.close, size: 14, color: AppTokens.primary),
-            ),
+              GestureDetector(
+                onTap: () => context.read<BuilderStateV3>().removeGoalMove(move.moveId),
+                child: Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: AppTokens.surface,
+                    border: Border.all(color: AppTokens.primary.withValues(alpha: 0.5), width: 1),
+                    borderRadius: BorderRadius.circular(AppTokens.radius),
+                  ),
+                  child: Icon(Icons.close, size: 14, color: AppTokens.primary),
+                ),
+              ),
+            ],
           ),
+          if (attrReqs.isNotEmpty) ...[
+            const SizedBox(height: 2),
+            Padding(
+              padding: const EdgeInsets.only(left: 8),
+              child: _buildAttrReqsText(attrReqs),
+            ),
+          ],
         ],
       ),
     );
@@ -589,7 +693,7 @@ class _GoalAddDialogContentState extends State<_GoalAddDialogContent> {
             ? group.anims
             : group.anims.where((a) => a.getDisplayName().toLowerCase().contains(query)).toList();
         if (anims.isEmpty) continue;
-        final key = '${tab.tabId}__${group.animType}';
+        final key = '${tab.tabId}__${group.animType}__${group.getDisplayName()}';
         final expanded = _expandedGroups.contains(key);
         // Group header
         items.add(GestureDetector(
@@ -678,7 +782,38 @@ class _GoalAddDialogContentState extends State<_GoalAddDialogContent> {
       final error = state.validateGoalBadge(badgeId, tierValue);
       if (error != null) { setState(() { _errorMessage = error; }); return; }
       final badge = loader.badgeDefinitions.firstWhere((b) => b.badgeId == badgeId, orElse: () => throw Exception('Badge not found'));
-      state.addGoalBadge(GoalBadge(badgeId: badgeId, badgeName: badge.displayName, tier: _selectedTier!.label, targetValue: tierValue));
+      
+      // Get attribute requirements for this badge tier
+      // Legend tier has no requirements in the dataset; fall back to hall_of_fame
+      BadgeTier reqTier = _selectedTier!;
+      if (reqTier == BadgeTier.legend) reqTier = BadgeTier.hallOfFame;
+      var tierReqs = loader.tierRequirements.where((r) => r.badgeId == badgeId && r.tier == reqTier).toList();
+      // If still empty, try the highest available tier
+      if (tierReqs.isEmpty) {
+        for (final t in [BadgeTier.hallOfFame, BadgeTier.gold, BadgeTier.silver, BadgeTier.bronze]) {
+          tierReqs = loader.tierRequirements.where((r) => r.badgeId == badgeId && r.tier == t).toList();
+          if (tierReqs.isNotEmpty) break;
+        }
+      }
+      final attrReqs = <GoalAttributeRequirement>[];
+      for (final req in tierReqs) {
+        for (final r in req.requirements) {
+          final displayName = loader.attributes[r.attributeIndex].displayName;
+          attrReqs.add(GoalAttributeRequirement(
+            attributeIndex: r.attributeIndex,
+            attributeName: displayName,
+            minimum: r.minimum,
+          ));
+        }
+      }
+      
+      state.addGoalBadge(GoalBadge(
+        badgeId: badgeId,
+        badgeName: badge.displayName,
+        tier: _selectedTier!.label,
+        targetValue: tierValue,
+        attributeRequirements: attrReqs,
+      ));
     } else if (_tabIndex == 1) {
       // Move
       if (state.hasGoalMove(_selectedId!)) {
@@ -697,7 +832,59 @@ class _GoalAddDialogContentState extends State<_GoalAddDialogContent> {
           }
         }
       }
-      state.addGoalMove(GoalMove(moveId: _selectedId!, moveName: moveName, category: category, targetValue: 1));
+      // Get attribute requirements from animation attribReqs
+      // Map Attrib Type (e.g. "ShotMidrange") to attribute name (e.g. "mid_range")
+      const attribTypeToName = {
+        'ShotMidrange': 'mid_range',
+        'ShotThree': 'three_point',
+        'DrivingDunk': 'driving_dunk',
+        'DrivingLayup': 'driving_layup',
+        'StandingDunk': 'standing_dunk',
+        'PostControl': 'post_control',
+        'BallControl': 'ball_handle',
+        'PassAccuracy': 'pass_accuracy',
+        'SpeedWithBall': 'speed_with_ball',
+        'Speed': 'speed',
+        'Agility': 'agility',
+        'Vertical': 'vertical',
+        'CloseShot': 'close_shot',
+        'FreeThrow': 'free_throw',
+        'InteriorDefense': 'interior_defense',
+        'PerimeterDefense': 'perimeter_defense',
+        'Steal': 'steal',
+        'Block': 'block',
+        'OffensiveRebound': 'offensive_rebound',
+        'DefensiveRebound': 'defensive_rebound',
+        'Strength': 'strength',
+      };
+      final moveAttrReqs = <GoalAttributeRequirement>[];
+      for (final tab in loader.animTabs) {
+        for (final group in tab.groups) {
+          for (final anim in group.anims) {
+            if (anim.animId == _selectedId!) {
+              for (final req in anim.attribReqs) {
+                final mappedName = attribTypeToName[req.attrib] ?? req.attrib;
+                final attrIndex = loader.attributes.indexWhere((a) => a.name == mappedName);
+                if (attrIndex >= 0) {
+                  moveAttrReqs.add(GoalAttributeRequirement(
+                    attributeIndex: attrIndex,
+                    attributeName: loader.attributes[attrIndex].displayName,
+                    minimum: req.value,
+                  ));
+                }
+              }
+            }
+          }
+        }
+      }
+
+      state.addGoalMove(GoalMove(
+        moveId: _selectedId!,
+        moveName: moveName,
+        category: category,
+        targetValue: 1,
+        attributeRequirements: moveAttrReqs,
+      ));
     } else {
       // Attribute
       final targetValue = int.tryParse(_valueCtrl.text);

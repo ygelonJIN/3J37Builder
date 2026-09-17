@@ -82,6 +82,8 @@ class BuilderStateV3 extends ChangeNotifier {
   // Goal state
   final Map<int, int> _goalRatings = {};
   final Set<int> _goalActive = {};
+  final Map<int, int> _goalConstrainedFloors = {}; // attrIndex -> minimum floor imposed by Goal constraints
+  final Set<int> _goalFromBadgesMoves = {}; // attrIndex -> attributes goal-locked by badge/move requirements
 
   // Goal data for badges and moves
   GoalData _goalData = const GoalData();
@@ -238,18 +240,17 @@ class BuilderStateV3 extends ChangeNotifier {
   }
 
   String? validateRatingChange(int attrIndex, int newValue) {
-    if (_lockedAttributes.isEmpty && _goalActive.isEmpty) return null;
-    final caps = getAttributeCaps();
-    final clampedValue = newValue.clamp(25, caps[attrIndex]);
+    if (_lockedAttributes.isEmpty && _goalActive.isEmpty && _goalConstrainedFloors.isEmpty) return null;
     if (_goalActive.contains(attrIndex)) {
-      final goalValue = _goalRatings[attrIndex];
-      if (goalValue != null && clampedValue != goalValue) {
-        return '${_loader.attributes[attrIndex].displayName} GOAL锁定为 $goalValue';
-      }
+      return "Remove Goal First";
+    }
+    // Check if lowering below a goal-constrained floor
+    final floor = _goalConstrainedFloors[attrIndex];
+    if (floor != null && newValue < floor) {
+      return "Remove Goal First";
     }
     return null;
   }
-
   void setPosition(Position pos) {
     if (_position == pos) return;
     _position = pos;
@@ -299,6 +300,10 @@ class BuilderStateV3 extends ChangeNotifier {
 
   void setRating(int attrIndex, int value) {
     if (_lockedAttributes.contains(attrIndex)) return;
+    if (_goalActive.contains(attrIndex)) return; // Goal-locked attributes cannot be modified
+    // Check goal-constrained floors
+    final floor = _goalConstrainedFloors[attrIndex];
+    if (floor != null && value < floor) return; // Cannot go below goal-constrained floor
     // Clamp to 25 and physical cap (not including cap breakers)
     final newValue = value.clamp(25, _physicalCaps[attrIndex]);
     if (_baseRatings[attrIndex] == newValue) return;
@@ -574,7 +579,12 @@ class BuilderStateV3 extends ChangeNotifier {
     notifyListeners();
   }
 
-  bool canAdjustAttribute(int attrIndex) => !_lockedAttributes.contains(attrIndex);
+  bool canAdjustAttribute(int attrIndex) {
+    if (_lockedAttributes.contains(attrIndex)) return false;
+    if (_goalActive.contains(attrIndex)) return false;
+    // Goal-constrained attributes can still be adjusted UP, just not below floor
+    return true;
+  }
 
   Set<int> get lockedAttributes => Set.unmodifiable(_lockedAttributes);
 
@@ -615,6 +625,7 @@ class BuilderStateV3 extends ChangeNotifier {
     _goalData = _goalData.copyWith(
       badges: [..._goalData.badges, badge],
     );
+    _applyGoalConstraintsFromBadgesMoves();
     notifyListeners();
   }
 
@@ -622,6 +633,7 @@ class BuilderStateV3 extends ChangeNotifier {
     _goalData = _goalData.copyWith(
       badges: _goalData.badges.where((b) => b.badgeId != badgeId).toList(),
     );
+    _applyGoalConstraintsFromBadgesMoves();
     notifyListeners();
   }
 
@@ -629,6 +641,7 @@ class BuilderStateV3 extends ChangeNotifier {
     _goalData = _goalData.copyWith(
       moves: [..._goalData.moves, move],
     );
+    _applyGoalConstraintsFromBadgesMoves();
     notifyListeners();
   }
 
@@ -636,6 +649,7 @@ class BuilderStateV3 extends ChangeNotifier {
     _goalData = _goalData.copyWith(
       moves: _goalData.moves.where((m) => m.moveId != moveId).toList(),
     );
+    _applyGoalConstraintsFromBadgesMoves();
     notifyListeners();
   }
 
@@ -645,6 +659,11 @@ class BuilderStateV3 extends ChangeNotifier {
 
   bool hasGoalMove(String moveId) {
     return _goalData.moves.any((m) => m.moveId == moveId);
+  }
+
+  /// Get the maximum attribute requirements across all goal badges and moves
+  Map<int, int> getGoalAttributeRequirements() {
+    return _goalData.getAttributeRequirements();
   }
 
   String? validateGoalBadge(int badgeId, int targetValue) {
@@ -670,6 +689,34 @@ class BuilderStateV3 extends ChangeNotifier {
     _goalData = _goalData.copyWith(
       attributes: [..._goalData.attributes, attr],
     );
+    // Sync _goalActive and _goalRatings for UI display
+    _goalActive.add(attr.attributeIndex);
+    _goalRatings[attr.attributeIndex] = attr.targetValue;
+
+    // Actually apply the goal value to _baseRatings and trigger constraint propagation
+    final attrIndex = attr.attributeIndex;
+    final goalValue = attr.targetValue.clamp(25, _physicalCaps[attrIndex]);
+    final oldValue = _baseRatings[attrIndex];
+    _baseRatings[attrIndex] = goalValue;
+    _userTouched[attrIndex] = true;
+
+    if (goalValue < oldValue) {
+      _propagateDown(attrIndex, goalValue);
+    }
+
+    _applyConstraintsAndOvrBudget(attrIndex, oldValue);
+    _autoDowngradeBadges();
+    _recalculateCapBreakerGains();
+    _recalculateFinalRatings();
+
+    // Snapshot floors: any attribute raised by constraint propagation is now goal-constrained
+    for (int i = 0; i < 21; i++) {
+      final existing = _goalConstrainedFloors[i] ?? 0;
+      if (_baseRatings[i] > existing) {
+        _goalConstrainedFloors[i] = _baseRatings[i];
+      }
+    }
+
     notifyListeners();
   }
 
@@ -677,7 +724,94 @@ class BuilderStateV3 extends ChangeNotifier {
     _goalData = _goalData.copyWith(
       attributes: _goalData.attributes.where((a) => a.attributeIndex != attrIndex).toList(),
     );
+    // Sync _goalActive and _goalRatings
+    _goalActive.remove(attrIndex);
+    _goalRatings.remove(attrIndex);
+    // Recalculate constrained floors from remaining goals
+    _recalculateGoalFloors();
     notifyListeners();
+  }
+
+  /// Apply attribute requirements from all goal badges/moves as real constraints
+  void _applyGoalConstraintsFromBadgesMoves() {
+    // First, remove old badge/move goal locks (for attributes not directly goal-locked)
+    for (final attrIndex in _goalFromBadgesMoves.toList()) {
+      if (!_goalData.attributes.any((a) => a.attributeIndex == attrIndex)) {
+        // Not directly set as a Goal attribute - remove the lock
+        _goalActive.remove(attrIndex);
+        _goalRatings.remove(attrIndex);
+      }
+    }
+    _goalFromBadgesMoves.clear();
+
+    // Calculate combined attribute requirements from all badges/moves
+    final combinedReqs = _goalData.getAttributeRequirements();
+
+    // Apply each requirement
+    for (final entry in combinedReqs.entries) {
+      final attrIndex = entry.key;
+      final requiredValue = entry.value.clamp(25, _physicalCaps[attrIndex]);
+
+      // Skip if already directly goal-locked (direct Goal takes priority)
+      if (_goalData.attributes.any((a) => a.attributeIndex == attrIndex)) continue;
+
+      // Only apply if the requirement is higher than current rating
+      if (_baseRatings[attrIndex] < requiredValue || !_goalActive.contains(attrIndex)) {
+        _goalActive.add(attrIndex);
+        _goalRatings[attrIndex] = requiredValue;
+        _goalFromBadgesMoves.add(attrIndex);
+
+        final oldValue = _baseRatings[attrIndex];
+        _baseRatings[attrIndex] = requiredValue;
+        _userTouched[attrIndex] = true;
+
+        _applyConstraintsAndOvrBudget(attrIndex, oldValue);
+      } else if (_goalActive.contains(attrIndex) && _goalFromBadgesMoves.contains(attrIndex)) {
+        // Already locked by badge/move, update value if needed
+        _goalRatings[attrIndex] = requiredValue;
+        _goalFromBadgesMoves.add(attrIndex);
+      }
+    }
+
+    // Snapshot floors
+    for (int i = 0; i < 21; i++) {
+      final existing = _goalConstrainedFloors[i] ?? 0;
+      if (_baseRatings[i] > existing) {
+        _goalConstrainedFloors[i] = _baseRatings[i];
+      }
+    }
+
+    _autoDowngradeBadges();
+    _recalculateCapBreakerGains();
+    _recalculateFinalRatings();
+  }
+
+  /// Recalculate goal-constrained floors from remaining active goals
+  void _recalculateGoalFloors() {
+    _goalConstrainedFloors.clear();
+    if (_goalActive.isEmpty) return;
+    
+    // Save current ratings, temporarily remove all goals, restore, and reapply
+    final savedBase = List<int>.from(_baseRatings);
+    
+    // Reset to defaults (25) and reapply each goal to calculate floors
+    _baseRatings = List.filled(21, 25);
+    
+    for (final goalIndex in _goalActive) {
+      final goalVal = _goalRatings[goalIndex] ?? 25;
+      _baseRatings[goalIndex] = goalVal.clamp(25, _physicalCaps[goalIndex]);
+      _applyConstraintsAndOvrBudget(goalIndex, 25);
+    }
+    
+    // Snapshot floors: any attribute above 25 is goal-constrained
+    for (int i = 0; i < 21; i++) {
+      if (_baseRatings[i] > 25) {
+        _goalConstrainedFloors[i] = _baseRatings[i];
+      }
+    }
+    
+    // Restore saved ratings
+    _baseRatings = savedBase;
   }
 
   void updateGoalAttributeValue(int attrIndex, int newValue) {
@@ -688,6 +822,8 @@ class BuilderStateV3 extends ChangeNotifier {
       return a;
     }).toList();
     _goalData = _goalData.copyWith(attributes: attrs);
+    // Sync _goalRatings
+    _goalRatings[attrIndex] = newValue;
     notifyListeners();
   }
 
@@ -725,3 +861,4 @@ class BuilderStateV3 extends ChangeNotifier {
   }
 
 }
+
