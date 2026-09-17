@@ -228,6 +228,11 @@ class BuilderStateV3 extends ChangeNotifier {
     return _appliedCapBreakers[attrIndex]?.length ?? 0;
   }
 
+  /// Get the list of cap breaker gains for an attribute
+  List<int> getAppliedCapBreakerGains(int attrIndex) {
+    return List<int>.from(_appliedCapBreakers[attrIndex] ?? []);
+  }
+
   /// Apply a specific cap breaker gain to an attribute
   bool applyCapBreakerWithGain(int attrIndex, int gain) {
     final appliedCount = _appliedCapBreakers[attrIndex]?.length ?? 0;

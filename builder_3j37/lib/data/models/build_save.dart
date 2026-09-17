@@ -11,6 +11,7 @@ class BuildSave {
   final int wingspanInches;
   final List<int> baseRatings;  // 21 attribute values
   final Map<int, int> equippedBadgeTiers;  // badgeId -> tier code (1-5)
+  final Map<int, List<int>> appliedCapBreakers;  // attrIndex -> list of gains
   final int overallRating;
   final DateTime createdAt;
   DateTime updatedAt;
@@ -24,6 +25,7 @@ class BuildSave {
     required this.wingspanInches,
     required this.baseRatings,
     required this.equippedBadgeTiers,
+    required this.appliedCapBreakers,
     required this.overallRating,
     required this.createdAt,
     DateTime? updatedAt,
@@ -73,6 +75,7 @@ class BuildSave {
     'wingspanInches': wingspanInches,
     'baseRatings': baseRatings,
     'equippedBadgeTiers': equippedBadgeTiers.map((k, v) => MapEntry('$k', v)),
+    'appliedCapBreakers': appliedCapBreakers.map((k, v) => MapEntry('$k', v)),
     'overallRating': overallRating,
     'createdAt': createdAt.toIso8601String(),
     'updatedAt': updatedAt.toIso8601String(),
@@ -81,6 +84,16 @@ class BuildSave {
   factory BuildSave.fromJson(Map<String, dynamic> json) {
     final badgesRaw = json['equippedBadgeTiers'] as Map<String, dynamic>? ?? {};
     final badges = badgesRaw.map((k, v) => MapEntry(int.parse(k), v as int));
+    
+    // Parse cap breakers (with backward compatibility)
+    final cbRaw = json['appliedCapBreakers'] as Map<String, dynamic>? ?? {};
+    final capBreakers = <int, List<int>>{};
+    for (final entry in cbRaw.entries) {
+      final attrIdx = int.parse(entry.key);
+      final gains = (entry.value as List).cast<int>();
+      capBreakers[attrIdx] = gains;
+    }
+
     return BuildSave(
       id: json['id'] as String,
       name: json['name'] as String,
@@ -90,6 +103,7 @@ class BuildSave {
       wingspanInches: json['wingspanInches'] as int,
       baseRatings: (json['baseRatings'] as List).cast<int>(),
       equippedBadgeTiers: badges,
+      appliedCapBreakers: capBreakers,
       overallRating: json['overallRating'] as int,
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: DateTime.parse(json['updatedAt'] as String),

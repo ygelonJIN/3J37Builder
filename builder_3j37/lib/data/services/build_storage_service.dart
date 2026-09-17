@@ -24,7 +24,6 @@ class BuildStorageService extends ChangeNotifier {
   int get count => _builds.length;
   bool get isLoaded => _loaded;
 
-  /// Load all saved builds from persistent storage.
   Future<void> loadBuilds() async {
     if (_loaded) return;
     try {
@@ -58,6 +57,15 @@ class BuildStorageService extends ChangeNotifier {
       }
     }
 
+    // Collect applied cap breakers
+    final appliedCapBreakers = <int, List<int>>{};
+    for (int i = 0; i < 21; i++) {
+      final gains = state.getAppliedCapBreakerGains(i);
+      if (gains.isNotEmpty) {
+        appliedCapBreakers[i] = List<int>.from(gains);
+      }
+    }
+
     final build = BuildSave(
       id: id,
       name: name ?? 'Build ${_builds.length + 1}',
@@ -67,6 +75,7 @@ class BuildStorageService extends ChangeNotifier {
       wingspanInches: state.wingspanInches,
       baseRatings: List<int>.from(state.baseRatings),
       equippedBadgeTiers: equippedBadges,
+      appliedCapBreakers: appliedCapBreakers,
       overallRating: state.overallRating,
       createdAt: now,
     );
@@ -77,7 +86,6 @@ class BuildStorageService extends ChangeNotifier {
     return build;
   }
 
-  /// Rename a build.
   Future<void> renameBuild(String id, String newName) async {
     final idx = _builds.indexWhere((b) => b.id == id);
     if (idx < 0) return;
@@ -87,14 +95,12 @@ class BuildStorageService extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Delete a build.
   Future<void> deleteBuild(String id) async {
     _builds.removeWhere((b) => b.id == id);
     await _persist();
     notifyListeners();
   }
 
-  /// Get a build by id.
   BuildSave? getBuild(String id) {
     for (final b in _builds) {
       if (b.id == id) return b;
@@ -113,12 +119,19 @@ class BuildStorageService extends ChangeNotifier {
       state.setRating(i, build.baseRatings[i]);
     }
 
+    // Restore cap breakers
+    state.clearAllCapBreakers();
+    for (final entry in build.appliedCapBreakers.entries) {
+      final attrIdx = entry.key;
+      for (final gain in entry.value) {
+        state.applyCapBreakerWithGain(attrIdx, gain);
+      }
+    }
+
     for (final entry in build.equippedBadgeTiers.entries) {
       state.equipBadge(entry.key, BadgeTierX.fromCode(entry.value));
     }
   }
-
-  // ── Persistence ──────────────────────────────────────
 
   Future<void> _persist() async {
     try {

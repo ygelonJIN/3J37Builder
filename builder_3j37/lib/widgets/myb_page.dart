@@ -290,6 +290,19 @@ class _MyBPageState extends State<MyBPage> {
               ),
             ),
 
+            // Bottom scrim
+            Positioned(
+              bottom: 0, left: 0, right: 0,
+              child: IgnorePointer(
+                child: SizedBox(
+                  height: AppTokens.bottomScrimHeight,
+                  child: const DecoratedBox(
+                    decoration: BoxDecoration(gradient: AppTokens.bottomScrim),
+                  ),
+                ),
+              ),
+            ),
+
             // Top chrome
             Positioned(
               top: 0, left: 0, right: 0,
