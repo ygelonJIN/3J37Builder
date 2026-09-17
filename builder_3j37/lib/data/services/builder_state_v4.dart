@@ -101,7 +101,8 @@ class BuilderStateV4 extends ChangeNotifier {
   Map<String, int> get _currentValues {
     final values = <String, int>{};
     for (int i = 0; i < 21; i++) {
-      values[CapBreakerEngine.getAttributeId(i)] = _finalRatings[i];
+      // Always use BASE ratings for archetype matching (no cap breaker gains)
+      values[CapBreakerEngine.getAttributeId(i)] = _baseRatings[i];
     }
     return values;
   }

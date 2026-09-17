@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../data/models/badge_data.dart';
 import '../data/models/enums.dart';
-import '../data/services/builder_state.dart';
+import '../data/services/builder_state_v3.dart';
 import '../data/services/dataset_loader.dart';
 import '../theme/app_tokens.dart';
 import 'package:provider/provider.dart';
@@ -12,7 +12,7 @@ class BadgePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final state = context.watch<BuilderState>();
+    final state = context.watch<BuilderStateV3>();
     final statuses = state.getBadgeStatuses();
     final budget = state.getTokenBudget();
     final spent = state.getTokensSpent();
@@ -177,7 +177,7 @@ class _BadgeChip extends StatelessWidget {
 
     Color borderColor;
     if (isEquipped) {
-      final equippedTier = context.read<BuilderState>().equippedBadges[badge.badgeId];
+      final equippedTier = context.read<BuilderStateV3>().equippedBadges[badge.badgeId];
       borderColor = equippedTier != null
           ? Color(int.parse(tierColours[equippedTier.key]!.value.toRadixString(16).padLeft(8, '0'), radix: 16))
           : AppTokens.primary;
@@ -225,7 +225,7 @@ class _BadgeChip extends StatelessWidget {
   void _showBadgeDetails(BuildContext context) {
     final loader = DatasetLoader();
     final badge = status.badge;
-    final state = context.read<BuilderState>();
+    final state = context.read<BuilderStateV3>();
     final tierColours = AppTokens.badgeTierColours;
     final remaining = state.getTokensRemaining();
 
@@ -385,7 +385,7 @@ class _BadgeChip extends StatelessWidget {
   }
 
 
-  Widget _buildHeightRequirement(BuildContext context, BadgeDef badge, BuilderState state) {
+  Widget _buildHeightRequirement(BuildContext context, BadgeDef badge, BuilderStateV3 state) {
     final minHeight = badge.minHeight;
     final maxHeight = badge.maxHeight;
     final currentHeight = state.heightInches;
@@ -443,7 +443,7 @@ class _BadgeChip extends StatelessWidget {
     );
   }
 
-  bool _meetsRequirements(Iterable<BadgeTierRequirement> reqs, BuilderState state) {
+  bool _meetsRequirements(Iterable<BadgeTierRequirement> reqs, BuilderStateV3 state) {
     for (final req in reqs) {
       for (final r in req.requirements) {
         if (state.ratings[r.attributeIndex] < r.minimum) return false;

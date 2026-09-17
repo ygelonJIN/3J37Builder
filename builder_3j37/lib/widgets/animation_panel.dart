@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../data/models/animation_data.dart';
-import '../data/services/builder_state.dart';
+import '../data/services/builder_state_v3.dart';
 import '../data/services/dataset_loader.dart';
 import '../data/services/tuning_parser.dart';
 import '../theme/app_tokens.dart';
@@ -78,7 +78,7 @@ class _AnimGroupWidgetState extends State<_AnimGroupWidget> {
   @override
   Widget build(BuildContext context) {
     final group = widget.group;
-    final state = context.watch<BuilderState>();
+    final state = context.watch<BuilderStateV3>();
     final ratings = state.ratings;
 
     // Count unlocked animations
@@ -146,7 +146,7 @@ class _AnimEntryWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final state = context.watch<BuilderState>();
+    final state = context.watch<BuilderStateV3>();
     final ratings = state.ratings;
     final isUnlocked = _isUnlocked(anim, ratings);
 
@@ -227,7 +227,7 @@ class _AnimEntryWidget extends StatelessWidget {
   }
 
   void _showRequirements(BuildContext context, bool isUnlocked) {
-    final state = context.read<BuilderState>();
+    final state = context.read<BuilderStateV3>();
     final ratings = state.ratings;
 
     CenterDialog.show(

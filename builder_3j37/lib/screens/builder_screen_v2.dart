@@ -24,6 +24,7 @@ class _BuilderScreenV2State extends State<BuilderScreenV2> {
   bool _showBadges = false;
   bool _showMoves = false;
   bool _cardExpanded = true;
+  bool _goalExpanded = false;
   final ScrollController _scrollController = ScrollController();
   
   // Cap breaker engine
@@ -100,6 +101,23 @@ class _BuilderScreenV2State extends State<BuilderScreenV2> {
     });
   }
 
+  void _onGoalExpandedChanged(bool expanded) {
+    final oldExpanded = _goalExpanded;
+    final offset = _scrollController.offset;
+    final isAtTop = offset <= 0;
+    
+    if (!isAtTop && oldExpanded != expanded) {
+      final adjustment = expanded ? 200.0 : -200.0;
+      if (_scrollController.hasClients) {
+        _scrollController.jumpTo(offset + adjustment);
+      }
+    }
+    
+    setState(() {
+      _goalExpanded = expanded;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_essentialLoading) {
@@ -134,9 +152,13 @@ class _BuilderScreenV2State extends State<BuilderScreenV2> {
   }
 
   Widget _buildHomeBody() {
-    final baseTopInset = AppTokens.contentTopInset;
+    // Base inset accounts for SafeArea + OverallDisplay + buttons.
+    // GoalCard minimized adds ~44px (36px card + 8px spacing).
+    const goalCardMinHeight = 44.0;
+    final baseTopInset = AppTokens.contentTopInset + goalCardMinHeight;
     final expandedExtraHeight = _cardExpanded ? 180.0 : 0.0;
-    final topInset = baseTopInset + expandedExtraHeight;
+    final goalExtraHeight = _goalExpanded ? 200.0 : 0.0;
+    final topInset = baseTopInset + expandedExtraHeight + goalExtraHeight;
 
     return Consumer<BuilderStateV3>(
       builder: (context, state, _) {
@@ -144,21 +166,28 @@ class _BuilderScreenV2State extends State<BuilderScreenV2> {
           children: [
             Positioned.fill(child: Container(color: AppTokens.background)),
             Positioned.fill(
-              child: SingleChildScrollView(
-                controller: _scrollController,
-                padding: EdgeInsets.fromLTRB(
-                  AppTokens.pageEdge,
-                  topInset,
-                  AppTokens.pageEdge,
-                  AppTokens.contentBottomInset,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const GoalCard(),
-                    const SizedBox(height: 12),
-                    const AttributeGroups(),
-                  ],
+              child: Listener(
+                onPointerDown: (_) => FocusScope.of(context).unfocus(),
+                child: NotificationListener<UserScrollNotification>(
+                  onNotification: (_) {
+                    FocusScope.of(context).unfocus();
+                    return false;
+                  },
+                  child: SingleChildScrollView(
+                    controller: _scrollController,
+                    padding: EdgeInsets.fromLTRB(
+                      AppTokens.pageEdge,
+                      topInset,
+                      AppTokens.pageEdge,
+                      AppTokens.contentBottomInset,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const AttributeGroups(),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -188,22 +217,32 @@ class _BuilderScreenV2State extends State<BuilderScreenV2> {
                     AppTokens.pageEdge,
                     0,
                   ),
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: OverallDisplay(
-                          onExpandedChanged: _onCardExpandedChanged,
-                        ),
+                      // Body data card (OverallDisplay)
+                      OverallDisplay(
+                        onExpandedChanged: _onCardExpandedChanged,
                       ),
-                      const SizedBox(width: 8),
-                      _buildPillButton(
-                        label: 'Badges',
-                        onTap: _openBadges,
+                      const SizedBox(height: 8),
+                      // Goal card (below body card, same spacing)
+                      GoalCard(
+                        onExpandedChanged: _onGoalExpandedChanged,
                       ),
-                      const SizedBox(width: 8),
-                      _buildPillButton(
-                        label: 'Moves',
-                        onTap: _openMoves,
+                      const SizedBox(height: 8),
+                      // Badges / Moves pill buttons
+                      Row(
+                        children: [
+                          _buildPillButton(
+                            label: 'Badges',
+                            onTap: _openBadges,
+                          ),
+                          const SizedBox(width: 8),
+                          _buildPillButton(
+                            label: 'Moves',
+                            onTap: _openMoves,
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -243,7 +282,7 @@ class _BuilderScreenV2State extends State<BuilderScreenV2> {
                   AppTokens.pageEdge,
                   AppTokens.contentBottomInset,
                 ),
-                child: const BadgePanel(),
+                child: BadgePanel(),
               ),
             ),
             Positioned(

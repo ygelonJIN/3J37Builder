@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../data/services/builder_state.dart';
+import '../data/services/builder_state_v3.dart';
 import '../data/services/dataset_loader.dart';
 import '../data/services/cap_breaker_engine.dart';
 import '../theme/app_tokens.dart';
@@ -9,6 +9,7 @@ import '../widgets/badge_panel.dart';
 import '../widgets/animation_panel.dart';
 import '../widgets/overall_display.dart';
 import '../widgets/attribute_floating_card.dart';
+import '../widgets/goal_card.dart';
 
 class BuilderScreen extends StatefulWidget {
   const BuilderScreen({super.key});
@@ -24,6 +25,7 @@ class _BuilderScreenState extends State<BuilderScreen> {
   bool _showMoves = false;
   bool _cardExpanded = true;
   bool _minimapExpanded = false;
+  bool _goalExpanded = false;
   final ScrollController _scrollController = ScrollController();
 
   void _dismissKeyboard() {
@@ -105,6 +107,23 @@ class _BuilderScreenState extends State<BuilderScreen> {
     });
   }
 
+  void _onGoalExpandedChanged(bool expanded) {
+    final oldExpanded = _goalExpanded;
+    final offset = _scrollController.offset;
+    final isAtTop = offset <= 0;
+    
+    if (!isAtTop && oldExpanded != expanded) {
+      final adjustment = expanded ? 200.0 : -200.0;
+      if (_scrollController.hasClients) {
+        _scrollController.jumpTo(offset + adjustment);
+      }
+    }
+    
+    setState(() {
+      _goalExpanded = expanded;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_essentialLoading) {
@@ -124,7 +143,7 @@ class _BuilderScreenState extends State<BuilderScreen> {
     }
 
     return ChangeNotifierProvider(
-      create: (_) => BuilderState(),
+      create: (_) => BuilderStateV3(),
       child: Scaffold(
         resizeToAvoidBottomInset: false,
         backgroundColor: AppTokens.background,
@@ -140,12 +159,13 @@ class _BuilderScreenState extends State<BuilderScreen> {
   }
 
   Widget _buildHomeBody() {
-    final baseTopInset = AppTokens.contentTopInset;
-    final expandedExtraHeight = _cardExpanded ? 150.0 : 0.0;
+    final baseTopInset = AppTokens.contentTopInset + 50; // 180, includes all 3 cards minimized
+    final expandedExtraHeight = _cardExpanded ? 155.0 : 0.0;
     final minimapExtraHeight = _minimapExpanded ? 240.0 : 0.0;
-    final topInset = baseTopInset + expandedExtraHeight + minimapExtraHeight;
+    final goalExtraHeight = _goalExpanded ? 60.0 : 0.0;
+    final topInset = baseTopInset + expandedExtraHeight + minimapExtraHeight + goalExtraHeight;
 
-    return Consumer<BuilderState>(
+    return Consumer<BuilderStateV3>(
       builder: (context, state, _) {
         return Stack(
           children: [
@@ -215,6 +235,10 @@ class _BuilderScreenState extends State<BuilderScreen> {
                               lockedAttributes: state.lockedAttributes,
                               onToggleLock: state.toggleAttributeLock,
                               onExpandedChanged: _onMinimapExpandedChanged,
+                            ),
+                            const SizedBox(height: 8),
+                            GoalCard(
+                              onExpandedChanged: _onGoalExpandedChanged,
                             ),
                           ],
                         ),

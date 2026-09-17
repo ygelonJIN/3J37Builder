@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../data/services/builder_state.dart';
+import '../data/services/builder_state_v3.dart';
 import '../data/services/dataset_loader.dart';
 import '../data/models/enums.dart';
 import '../theme/app_tokens.dart';
@@ -48,12 +48,12 @@ class _OverallDisplayState extends State<OverallDisplay> {
 
   @override
   Widget build(BuildContext context) {
-    final state = context.watch<BuilderState>();
+    final state = context.watch<BuilderStateV3>();
 
     return AnimatedContainer(
       duration: AppTokens.animShort,
       curve: AppTokens.curveOut,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: AppTokens.surfaceAlt,
         border: Border.all(color: AppTokens.primary.withValues(alpha: 0.4), width: 1),
@@ -68,20 +68,18 @@ class _OverallDisplayState extends State<OverallDisplay> {
             behavior: HitTestBehavior.opaque,
             child: Row(
               children: [
-                Flexible(
-                  child: Text(
-                    '${state.position.label}  ${_fmtHeight(state.heightInches)}  ${_fmtWeight(state.weightLb)}  ${_fmtWingspan(state.wingspanInches)}',
-                    style: TextStyle(
-                      fontFamily: AppTokens.fontFamily,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w300,
-                      color: AppTokens.textSecondary,
-                      letterSpacing: 0.2,
-                    ),
-                    overflow: TextOverflow.ellipsis,
+                Text(
+                  '${state.position.label}  ${_fmtHeight(state.heightInches)}  ${_fmtWeight(state.weightLb)}  ${_fmtWingspan(state.wingspanInches)}',
+                  style: TextStyle(
+                    fontFamily: AppTokens.fontFamily,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w300,
+                    color: AppTokens.textSecondary,
+                    letterSpacing: 0.2,
                   ),
+                  overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(width: 8),
+                const Spacer(),
                 Icon(
                   _expanded ? Icons.expand_less : Icons.expand_more,
                   size: 16,

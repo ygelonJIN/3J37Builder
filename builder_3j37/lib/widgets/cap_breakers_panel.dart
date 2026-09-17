@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../data/services/builder_state.dart';
+import '../data/services/builder_state_v3.dart';
 import '../data/services/cap_breaker_engine.dart';
 import '../theme/app_tokens.dart';
 import 'package:provider/provider.dart';
@@ -9,7 +9,7 @@ class CapBreakersPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final state = context.watch<BuilderState>();
+    final state = context.watch<BuilderStateV3>();
     final caps = state.getAttributeCaps();
     final ratings = state.ratings;
 
@@ -51,10 +51,10 @@ class CapBreakersPanel extends StatelessWidget {
     );
   }
 
-  Widget _buildCapBreakerRow(BuildContext context, BuilderState state, int attrIndex, int rating, int cap) {
+  Widget _buildCapBreakerRow(BuildContext context, BuilderStateV3 state, int attrIndex, int rating, int cap) {
     final gains = state.getCapBreakerSequence(attrIndex);
     final appliedCount = state.getAppliedCapBreakerCount(attrIndex);
-    final appliedGain = state.getCapBreakerGain(attrIndex);
+    final appliedGain = state.getCapBreakerGainForAttr(attrIndex);
     final nextGain = state.getNextCapBreakerGain(attrIndex);
     final canApply = state.canApplyCapBreaker(attrIndex);
     

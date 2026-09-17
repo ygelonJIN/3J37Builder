@@ -322,8 +322,8 @@ class BuilderState extends ChangeNotifier {
 
   bool applyCapBreaker(int attrIndex, int gain) {
     if (!_cbEngine.hasModelData) return false;
-    final currentGain = getCapBreakerGainForAttr(attrIndex);
-    if (currentGain + gain > 5) return false;
+    final appliedCount = _appliedCapBreakers[attrIndex]?.length ?? 0;
+    if (appliedCount >= CapBreakerConstants.maxPerAttribute) return false;
     
     _appliedCapBreakers[attrIndex] ??= [];
     _appliedCapBreakers[attrIndex]!.add(gain);
@@ -354,7 +354,8 @@ class BuilderState extends ChangeNotifier {
     if (!_cbEngine.hasModelData) return [];
     final values = <String, int>{};
     for (int i = 0; i < 21; i++) {
-      values[CapBreakerEngine.getAttributeId(i)] = _ratings[i] + getCapBreakerGainForAttr(i);
+      // Always use BASE ratings for archetype matching (no cap breaker gains)
+      values[CapBreakerEngine.getAttributeId(i)] = _ratings[i];
     }
     return _cbEngine.getChainedGains(attrIndex, _ratings[attrIndex], values: values, body: capBreakerBody, physicalCaps: getAttributeCaps());
   }

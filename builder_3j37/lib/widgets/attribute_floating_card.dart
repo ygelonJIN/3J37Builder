@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../data/models/attribute.dart';
-import '../data/services/builder_state.dart';
+import '../data/services/builder_state_v3.dart';
 import '../data/services/dataset_loader.dart';
 import '../theme/app_tokens.dart';
 import 'package:provider/provider.dart';
@@ -34,10 +34,10 @@ class _AttributeFloatingCardState extends State<AttributeFloatingCard> {
 
   @override
   Widget build(BuildContext context) {
-    final state = context.watch<BuilderState>();
+    final state = context.watch<BuilderStateV3>();
     final loader = DatasetLoader();
     final ovr = state.overallRating;
-    final preciseOvr = loader.getOvr(state.position, state.heightInches, state.ratings);
+    final preciseOvr = loader.getOvr(state.position, state.heightInches, state.baseRatings);
     final attributes = loader.attributes;
     final caps = state.getAttributeCaps();
 
@@ -73,7 +73,7 @@ class _AttributeFloatingCardState extends State<AttributeFloatingCard> {
                     color: AppTokens.keyOff,
                   ),
                 ),
-                const SizedBox(width: 2),
+                const Spacer(),
                 Text(
                   'minimap',
                   style: TextStyle(
@@ -83,7 +83,6 @@ class _AttributeFloatingCardState extends State<AttributeFloatingCard> {
                     color: AppTokens.textSecondary,
                   ),
                 ),
-                const Spacer(),
                 Icon(
                   _expanded ? Icons.expand_less : Icons.expand_more,
                   size: 16,
@@ -101,7 +100,7 @@ class _AttributeFloatingCardState extends State<AttributeFloatingCard> {
     );
   }
 
-  Widget _buildMinimap(List<AttributeDef> attributes, BuilderState state, List<int> caps) {
+  Widget _buildMinimap(List<AttributeDef> attributes, BuilderStateV3 state, List<int> caps) {
     final rows = <Widget>[];
     for (int i = 0; i < attributes.length; i += 2) {
       final a1 = attributes[i];

@@ -1,33 +1,38 @@
-/// Goal data model for storing badge and animation goals
+/// Goal data model for storing badge, animation, and attribute goals
 class GoalData {
   final List<GoalBadge> badges;
   final List<GoalMove> moves;
+  final List<GoalAttribute> attributes;
 
   const GoalData({
     this.badges = const [],
     this.moves = const [],
+    this.attributes = const [],
   });
 
   GoalData copyWith({
     List<GoalBadge>? badges,
     List<GoalMove>? moves,
+    List<GoalAttribute>? attributes,
   }) {
     return GoalData(
       badges: badges ?? this.badges,
       moves: moves ?? this.moves,
+      attributes: attributes ?? this.attributes,
     );
   }
 
   int get badgeCount => badges.length;
   int get moveCount => moves.length;
+  int get attributeCount => attributes.length;
 }
 
 /// Represents a badge goal with a target tier
 class GoalBadge {
   final int badgeId;
   final String badgeName;
-  final String tier; // e.g., 'gold', 'hall_of_fame', 'legend'
-  final int targetValue; // The X value in X/Y
+  final String tier;
+  final int targetValue;
 
   const GoalBadge({
     required this.badgeId,
@@ -65,8 +70,8 @@ class GoalBadge {
 class GoalMove {
   final String moveId;
   final String moveName;
-  final String category; // e.g., 'dribble', 'shot', 'dunk'
-  final int targetValue; // The X value in X/Y
+  final String category;
+  final int targetValue;
 
   const GoalMove({
     required this.moveId,
@@ -98,4 +103,39 @@ class GoalMove {
 
   @override
   int get hashCode => moveId.hashCode;
+}
+
+/// Represents an attribute goal with a target value
+class GoalAttribute {
+  final int attributeIndex;
+  final String attributeName;
+  final int targetValue;
+
+  const GoalAttribute({
+    required this.attributeIndex,
+    required this.attributeName,
+    required this.targetValue,
+  });
+
+  GoalAttribute copyWith({
+    int? attributeIndex,
+    String? attributeName,
+    int? targetValue,
+  }) {
+    return GoalAttribute(
+      attributeIndex: attributeIndex ?? this.attributeIndex,
+      attributeName: attributeName ?? this.attributeName,
+      targetValue: targetValue ?? this.targetValue,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is GoalAttribute &&
+          runtimeType == other.runtimeType &&
+          attributeIndex == other.attributeIndex;
+
+  @override
+  int get hashCode => attributeIndex.hashCode;
 }
