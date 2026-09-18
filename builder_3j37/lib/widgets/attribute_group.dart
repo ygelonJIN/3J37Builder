@@ -53,7 +53,7 @@ class AttributeGroups extends StatelessWidget {
                   children: [
                     Text(context.tr(disc.name), style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 15, fontWeight: FontWeight.w800, color: colour)),
                     const SizedBox(width: 6),
-                    Text('$tokenRemaining/$tokenBudget Tokens ${slotBudget[disc.index]} Slots', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 14, fontWeight: FontWeight.w800, color: colour)),
+                    Text('$tokenRemaining/$tokenBudget ${context.tr("tokens")} ${state.getSlotsRemaining()[disc.index]}/${slotBudget[disc.index]} ${context.tr("slots")}', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 14, fontWeight: FontWeight.w800, color: colour)),
                   ],
                 ),
               ),
@@ -131,6 +131,10 @@ class _AttributeControlState extends State<_AttributeControl> {
   @override
   void initState() {
     super.initState();
+    // 默认展开突破上篮
+    if (widget.attribute.name == 'driving_layup') {
+      _expanded = true;
+    }
     _xController = TextEditingController(text: '${widget.value}');
     _xFocus.addListener(_onXFocusChange);
   }
@@ -164,7 +168,7 @@ class _AttributeControlState extends State<_AttributeControl> {
       final clampedDisplay = (widget.value).clamp(25, widget.cap);
       if (v != null) {
         if (widget.isLocked) {
-          _showError('${context.tr(widget.attribute.name)}已锁定');
+          _showError('${context.tr(widget.attribute.name)} is locked');
           _xController.text = '$clampedDisplay';
         } else if (v > widget.cap) {
           _showError('Max ${widget.cap}');
@@ -250,95 +254,99 @@ class _AttributeControlState extends State<_AttributeControl> {
           padding: const EdgeInsets.symmetric(vertical: 8),
           child: Row(
             children: [
-              GestureDetector(
-                onTap: () {
-                  if (_suppressExpand) {
-                    _suppressExpand = false;
-                    FocusScope.of(context).unfocus();
-                  } else {
-                    setState(() => _expanded = !_expanded);
-                  }
-                },
-                child: Container(
-                  width: 170,
-                  padding: const EdgeInsets.symmetric(vertical: 2),
-                  child: Row(
-                    children: [
-                      Expanded(child: Text(context.tr(widget.attribute.name), style: AppTokens.caption.copyWith(color: (isMaxed && appliedGain == 0) ? AppTokens.keyOff : AppTokens.textPrimary, fontSize: 11))),
-                      Icon(_expanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down, size: 16, color: AppTokens.textSecondary),
-                    ],
+              Flexible(
+                child: GestureDetector(
+                  onTap: () {
+                    if (_suppressExpand) {
+                      _suppressExpand = false;
+                      FocusScope.of(context).unfocus();
+                    } else {
+                      setState(() => _expanded = !_expanded);
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Row(
+                      children: [
+                        Icon(_expanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down, size: 17, color: AppTokens.textSecondary),
+                        Expanded(child: Text(context.tr(widget.attribute.name), style: AppTokens.caption.copyWith(color: (isMaxed && appliedGain == 0) ? AppTokens.keyOff : AppTokens.textPrimary, fontSize: 11))),
+                      ],
+                    ),
                   ),
                 ),
               ),
-              const Spacer(),
-              if (_hasError)
-                Padding(
-                  padding: const EdgeInsets.only(right: 16),
-                  child: Text(
-                    _errorMessage,
-                    style: AppTokens.caption.copyWith(color: Colors.red, fontSize: 10, fontWeight: FontWeight.w800),
-                  ),
-                )
-              else if (widget.isGoalActive) ...[
-                // GOAL: show like error message style - gold color, no plus/minus, no X/Y
-                Padding(
-                  padding: const EdgeInsets.only(right: 16),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'GOAL',
-                        style: TextStyle(
-                          fontFamily: AppTokens.fontFamily,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w900,
-                          color: AppTokens.primary,
-                          letterSpacing: 1,
+              SizedBox(
+                width: 190,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    if (_hasError)
+                      Expanded(
+                        child: Text(
+                          _errorMessage,
+                          style: AppTokens.caption.copyWith(color: Colors.red, fontSize: 10, fontWeight: FontWeight.w800),
+                          textAlign: TextAlign.right,
                         ),
+                      )
+                    else if (widget.isGoalActive)
+                      Expanded(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            Text(
+                              'GOAL',
+                              style: TextStyle(
+                                fontFamily: AppTokens.fontFamily,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w900,
+                                color: AppTokens.primary,
+                                letterSpacing: 1,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              '${widget.goalValue ?? widget.value}${appliedGain > 0 ? '+$appliedGain' : ''}',
+                              style: TextStyle(
+                                fontFamily: AppTokens.fontFamily,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                color: AppTokens.primary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    else ...[
+                      PlusMinusControl(
+                        value: widget.value,
+                        min: 25,
+                        max: widget.cap,
+                        onChanged: widget.canAdjust ? (v) {
+                          final baseVal = widget.value - appliedGain;
+                          if (v < widget.value && appliedGain > 0 &&
+                              (widget.value >= widget.cap || baseVal <= 25)) {
+                            _showError(context.tr('remove_cap_breaker_first'));
+                            return;
+                          }
+                          final baseValue = (v - appliedGain).clamp(25, widget.cap);
+                          final error = widget.validateChanged?.call(baseValue);
+                          if (error == null) {
+                            widget.onChanged(baseValue);
+                          } else {
+                            _showError(error);
+                          }
+                        } : null,
+                        activeColor: widget.colour,
                       ),
+                      
+                      const SizedBox(width: 4),
+                      _buildNormalDisplay(xColor, yColor, appliedGain),
                       const SizedBox(width: 6),
-                      Text(
-                        '${widget.goalValue ?? widget.value}${appliedGain > 0 ? '+$appliedGain' : ''}',
-                        style: TextStyle(
-                          fontFamily: AppTokens.fontFamily,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          color: AppTokens.primary,
-                        ),
-                      ),
+                      _buildLockIcon(),
                     ],
-                  ),
+                  ],
                 ),
-              ]
-              else ...[
-                PlusMinusControl(
-                  value: widget.value,
-                  min: 25,
-                  max: widget.cap,
-                  onChanged: widget.canAdjust ? (v) {
-                    // With cap breakers: block decrease and prompt to remove them
-                    // Covers: at cap (value==cap) or at floor (base==25)
-                    final baseVal = widget.value - appliedGain;
-                    if (v < widget.value && appliedGain > 0 &&
-                        (widget.value >= widget.cap || baseVal <= 25)) {
-                      _showError(context.tr('remove_cap_breaker_first'));
-                      return;
-                    }
-                    final baseValue = (v - appliedGain).clamp(25, widget.cap);
-                    final error = widget.validateChanged?.call(baseValue);
-                    if (error == null) {
-                      widget.onChanged(baseValue);
-                    } else {
-                      _showError(error);
-                    }
-                  } : null,
-                  activeColor: widget.colour,
-                ),
-                const SizedBox(width: 4),
-                _buildNormalDisplay(xColor, yColor, appliedGain),
-                const SizedBox(width: 6),
-                _buildLockIcon(),
-              ],
+              ),
               ],
           ),
         ),
@@ -361,28 +369,74 @@ class _AttributeControlState extends State<_AttributeControl> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          GestureDetector(
-            onTap: () => _showXInputDialog(appliedGain),
-            child: Container(
-              width: 40,
-              height: 28,
-              decoration: BoxDecoration(
-                color: AppTokens.surface,
-                border: Border.all(
-                  color: widget.colour.withValues(alpha: 0.5),
-                  width: 1,
+          SizedBox(
+            width: 40,
+            height: 28,
+            child: TextField(
+              controller: _xController,
+              focusNode: _xFocus,
+              textInputAction: TextInputAction.done,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              textAlign: TextAlign.center,
+              textAlignVertical: TextAlignVertical.center,
+              cursorWidth: 0,
+              style: AppTokens.body.copyWith(color: xColor, fontSize: 12, fontWeight: FontWeight.w600),
+              decoration: InputDecoration(
+                contentPadding: EdgeInsets.symmetric(horizontal: 0, vertical: 2),
+                isDense: true,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppTokens.radius),
+                  borderSide: BorderSide(color: appliedGain > 0 ? AppTokens.primary : widget.colour.withValues(alpha: 0.3), width: appliedGain > 0 ? 2.0 : 1.0),
                 ),
-                borderRadius: BorderRadius.circular(AppTokens.radius),
-              ),
-              child: Center(
-                child: Text(
-                  '${widget.value}',
-                  style: AppTokens.body.copyWith(color: xColor, fontSize: 12, fontWeight: FontWeight.w800),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppTokens.radius),
+                  borderSide: BorderSide(color: appliedGain > 0 ? AppTokens.primary : widget.colour.withValues(alpha: 0.2), width: appliedGain > 0 ? 2.0 : 1.0),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppTokens.radius),
+                  borderSide: BorderSide(color: appliedGain > 0 ? AppTokens.primary : widget.colour, width: appliedGain > 0 ? 2.5 : 1.5),
                 ),
               ),
+              onTap: () {
+                setState(() { _xEditing = true; });
+                if (_hasError) {
+                  _errorTimer?.cancel();
+                  setState(() {
+                    _hasError = false;
+                    _errorMessage = '';
+                  });
+                }
+                _xController.selection = TextSelection(baseOffset: 0, extentOffset: _xController.text.length);
+              },
+              onSubmitted: (_) {
+                final v = int.tryParse(_xController.text);
+                if (v != null) {
+                  if (widget.isLocked) {
+                    _showError('${context.tr(widget.attribute.name)} is locked');
+                    _xController.text = '${widget.value}';
+                  } else if (v > widget.cap) {
+                    _showError('Max ${widget.cap}');
+                  } else if (v < 25) {
+                    _showError('Min 25');
+                  } else {
+                    final baseValue = v - appliedGain;
+                    final error = widget.validateChanged?.call(baseValue.clamp(25, widget.cap));
+                    if (error != null) {
+                      _showError(error);
+                    } else {
+                      setState(() {
+                        _hasError = false;
+                        _errorMessage = '';
+                      });
+                      widget.onChanged(baseValue.clamp(25, widget.cap));
+                    }
+                  }
+                }
+                _xEditing = false;
+              },
             ),
           ),
-          const SizedBox(width: 4),
+          const SizedBox(width: 2),
           Text('/', style: AppTokens.body.copyWith(color: yColor, fontSize: 12)),
           Text('${widget.cap}', style: AppTokens.body.copyWith(color: yColor, fontSize: 12)),
         ],
@@ -428,14 +482,14 @@ class _AttributeControlState extends State<_AttributeControl> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text('取消', style: AppTokens.caption),
+            child: Text('Cancel', style: AppTokens.caption),
           ),
           ElevatedButton(
             onPressed: () {
               _handleXInput(controller.text, appliedGain);
               Navigator.of(context).pop();
             },
-            child: Text('确定', style: AppTokens.buttonLabel),
+            child: Text('OK', style: AppTokens.buttonLabel),
           ),
         ],
       ),
@@ -446,7 +500,7 @@ class _AttributeControlState extends State<_AttributeControl> {
     final v = int.tryParse(text);
     if (v != null) {
       if (widget.isLocked) {
-        _showError('${widget.attribute.displayName}已锁定');
+        _showError('${widget.attribute.displayName} is locked');
       } else if (v > widget.cap) {
         _showError('Max ${widget.cap}');
       } else if (v < 25) {
@@ -469,9 +523,7 @@ class _AttributeControlState extends State<_AttributeControl> {
 
   // ── Lock icon ──────────────────────────────────────────
   Widget _buildLockIcon() {
-    return Container(
-      margin: const EdgeInsets.only(right: 16),
-      child: GestureDetector(
+    return GestureDetector(
       onTap: widget.onToggleLock,
       child: Container(
         width: 20, height: 28,
@@ -482,7 +534,6 @@ class _AttributeControlState extends State<_AttributeControl> {
         ),
         child: Icon(widget.isLocked ? Icons.lock : Icons.lock_open, size: 14, color: widget.isLocked ? AppTokens.primary : AppTokens.keyOff.withValues(alpha: 0.5)),
       ),
-    ),
     );
   }
 

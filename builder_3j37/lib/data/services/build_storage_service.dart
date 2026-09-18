@@ -133,6 +133,38 @@ class BuildStorageService extends ChangeNotifier {
     }
   }
 
+  /// Import a build from a JSON string (e.g., shared by another user).
+  /// Returns the imported BuildSave, or null if parsing fails.
+  Future<BuildSave?> importBuildFromJsonString(String jsonStr) async {
+    try {
+      final build = BuildSave.fromJsonString(jsonStr.trim());
+      // Always create new build with new ID
+      final json = build.toJson();
+      json['id'] = DateTime.now().millisecondsSinceEpoch.toString();
+      json['created_at'] = DateTime.now().toIso8601String();
+      json['updated_at'] = DateTime.now().toIso8601String();
+      final newBuild = BuildSave.fromJson(json);
+      // Add import prefix
+      final prefix = '导入/';
+      newBuild.name = '$prefix${newBuild.name}';
+      // Handle name conflicts by adding (1), (2) etc.
+      final baseName = newBuild.name;
+      int counter = 1;
+      while (_builds.any((b) => b.name == newBuild.name)) {
+        newBuild.name = '$baseName ($counter)';
+        counter++;
+      }
+      _builds.insert(0, newBuild);
+      _builds.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+      await _persist();
+      notifyListeners();
+      return newBuild;
+    } catch (e) {
+      debugPrint('[BuildStorageService] Error importing build: $e');
+      return null;
+    }
+  }
+
   Future<void> _persist() async {
     try {
       final jsonStr = jsonEncode(_builds.map((b) => b.toJson()).toList());

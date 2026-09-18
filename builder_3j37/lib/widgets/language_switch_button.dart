@@ -33,62 +33,71 @@ class LanguageSwitchButton extends StatelessWidget {
             ],
           ),
           clipBehavior: Clip.antiAlias,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Left side - Chinese
-              InkWell(
-                onTap: () {
-                  debugPrint('[LanguageSwitch] Setting locale to zh_CN');
-                  localeService.setLocale(const Locale('zh', 'CN'));
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                  decoration: BoxDecoration(
-                    color: isChinese ? AppTokens.primary : Colors.transparent,
-                  ),
-                  child: Text(
-                    '中文',
-                    style: TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w800,
-                      color: isChinese ? AppTokens.onPrimary : AppTokens.textPrimary,
-                      fontFamily: AppTokens.fontFamily,
+          child: IntrinsicHeight(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Left side - Chinese
+                InkWell(
+                  onTap: () {
+                    debugPrint('[LanguageSwitch] Setting locale to zh_CN');
+                    localeService.setLocale(const Locale('zh', 'CN'));
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: isChinese ? AppTokens.primary : Colors.transparent,
+                    ),
+                    child: Center(
+                      child: Text(
+                        '中文',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: isChinese ? AppTokens.onPrimary : AppTokens.textPrimary,
+                          fontFamily: AppTokens.fontFamily,
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
-              
-              // Divider
-              Container(
-                width: 1,
-                height: 20,
-                color: borderColor,
-              ),
-              
-              // Right side - English
-              InkWell(
-                onTap: () {
-                  debugPrint('[LanguageSwitch] Setting locale to en_US');
-                  localeService.setLocale(const Locale('en', 'US'));
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                  decoration: BoxDecoration(
-                    color: !isChinese ? AppTokens.primary : Colors.transparent,
-                  ),
-                  child: Text(
-                    'EN',
-                    style: TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w800,
-                      color: !isChinese ? AppTokens.onPrimary : AppTokens.textPrimary,
-                      fontFamily: AppTokens.fontFamily,
+                
+                // Divider - full height
+                VerticalDivider(
+                  width: 1,
+                  thickness: 1,
+                  color: borderColor,
+                  indent: 0,
+                  endIndent: 0,
+                ),
+                
+                // Right side - English
+                InkWell(
+                  onTap: () {
+                    debugPrint('[LanguageSwitch] Setting locale to en_US');
+                    localeService.setLocale(const Locale('en', 'US'));
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: !isChinese ? AppTokens.primary : Colors.transparent,
+                    ),
+                    child: Center(
+                      child: Text(
+                        'EN',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: !isChinese ? AppTokens.onPrimary : AppTokens.textPrimary,
+                          fontFamily: AppTokens.fontFamily,
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },

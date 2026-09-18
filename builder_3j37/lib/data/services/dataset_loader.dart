@@ -877,7 +877,13 @@ class DatasetLoader {
   }
 
   int getBadgeTokenCost(int badgeId, BadgeTier tier, int heightInches) {
-    return tokenCostMap[TokenCostKey(badgeId, tier, heightInches)] ?? 0;
+    // Sum all costs from bronze up to and including the requested tier
+    int total = 0;
+    for (final t in BadgeTier.values) {
+      total += tokenCostMap[TokenCostKey(badgeId, t, heightInches)] ?? 0;
+      if (t == tier) break;
+    }
+    return total;
   }
 
   // 网站决胜数组 (来自 logic-CMaECw5P.js: Sl 和 Tl)

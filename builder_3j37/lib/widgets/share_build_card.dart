@@ -2,20 +2,34 @@ import 'dart:ui' as ui;
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:io';
 import '../data/models/enums.dart';
 import '../data/models/badge_data.dart';
 import '../data/services/builder_state_v3.dart';
 import '../theme/app_tokens.dart';
+import '../extensions/context_extensions.dart';
 
 class ShareBuildCard extends StatelessWidget {
+  final String? buildName;
   final BuilderStateV3 state;
   final GlobalKey repaintKey;
+  final double textScaleFactor;
 
   const ShareBuildCard({
+    this.buildName,
     super.key,
     required this.state,
     required this.repaintKey,
+    this.textScaleFactor = 1.0,
   });
+
+  /// Get platform-specific text scale factor
+  static double getPlatformTextScaleFactor() {
+    if (kIsWeb) return 1.3;
+    if (Platform.isAndroid) return 1.35;
+    return 1.3; // iOS and others
+  }
 
   static Future<Uint8List?> capture(GlobalKey key) async {
     try {
@@ -40,24 +54,36 @@ class ShareBuildCard extends StatelessWidget {
         color: const Color(0xFF0E0D10),
         child: Stack(
           children: [
-            Positioned.fill(child: CustomPaint(painter: _BackgroundPainter())),
             Padding(
               padding: const EdgeInsets.fromLTRB(56, 48, 56, 36),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildTopRow(),
+                  if (buildName != null && buildName!.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: Center(
+                        child: Text(
+                          buildName!,
+                          style: TextStyle(
+                            fontFamily: AppTokens.fontFamily,
+                            fontSize: 28 * textScaleFactor,
+                            fontWeight: FontWeight.w900,
+                            color: AppTokens.primary,
+                            letterSpacing: 1.5,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                  _buildTopRow(context),
                   const SizedBox(height: 20),
                   Expanded(
                     child: SingleChildScrollView(
                       physics: const NeverScrollableScrollPhysics(),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildAttributes(),
-                          const SizedBox(height: 20),
-                          _buildBadgesSection(),
-                        ],
+                        children: Discipline.values.map((d) => _buildDisciplineSection(context, d)).toList(),
                       ),
                     ),
                   ),
@@ -72,7 +98,7 @@ class ShareBuildCard extends StatelessWidget {
 
   // ── Top Row ───────────────────────────────────────────────
 
-  Widget _buildTopRow() {
+  Widget _buildTopRow(BuildContext context) {
     final hFeet = state.heightInches ~/ 12;
     final hInc = state.heightInches % 12;
     final hCm = (state.heightInches * 2.54).round();
@@ -81,136 +107,67 @@ class ShareBuildCard extends StatelessWidget {
     final wsInc = state.wingspanInches % 12;
     final wsCm = (state.wingspanInches * 2.54).round();
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // ── Left: Title (no decorative lines) ──
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-          decoration: BoxDecoration(
-            color: AppTokens.primary.withValues(alpha: 0.06),
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: AppTokens.primary.withValues(alpha: 0.35), width: 1.5),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('3J37', style: TextStyle(
-                fontFamily: AppTokens.fontFamily, fontSize: 50,
-                fontWeight: FontWeight.w900, color: AppTokens.primary,
-                letterSpacing: 8,
-                shadows: [
-                  Shadow(color: AppTokens.primary.withValues(alpha: 0.5), blurRadius: 16, offset: const Offset(0, 3)),
-                  Shadow(color: AppTokens.primary.withValues(alpha: 0.2), blurRadius: 40),
-                ],
-              )),
-              const SizedBox(height: 2),
-              Text('Builder', style: TextStyle(
-                fontFamily: AppTokens.fontFamily, fontSize: 30,
-                fontWeight: FontWeight.w500, color: AppTokens.textSecondary,
-                letterSpacing: 6,
-              )),
-            ],
-          ),
-        ),
-
-        const Spacer(),
-
-        // ── Right: Body Info (wider border) ──
-        Container(
-          padding: const EdgeInsets.only(left: 0, right: 80, top: 16, bottom: 16),
-          decoration: BoxDecoration(
-            color: AppTokens.surface.withValues(alpha: 0.5),
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: AppTokens.primary.withValues(alpha: 0.3), width: 2.5),
-            boxShadow: [
-              BoxShadow(color: AppTokens.primary.withValues(alpha: 0.06), blurRadius: 12),
-            ],
-          ),
-          child: Column(
-            children: [
-              _buildInfoRow(
-                label1: 'POS',
-                bigValue1: state.position.label,
-                label2: 'HT',
-                bigValue2: '${hCm}cm',
-                smallValue2: "$hFeet'$hInc\"",
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                child: Container(height: 1, width: 500, color: AppTokens.primary.withValues(alpha: 0.12)),
-              ),
-              _buildInfoRow(
-                label1: 'WT',
-                bigValue1: '${wKg}kg',
-                smallValue1: '${state.weightLb}lb',
-                label2: 'WS',
-                bigValue2: '${wsCm}cm',
-                smallValue2: "$wsFeet'$wsInc\"",
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildInfoRow({
-    required String label1, String? value1, String? bigValue1, String? smallValue1,
-    required String label2, String? value2, String? bigValue2, String? smallValue2,
-  }) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _infoCell(label1, value1: value1, bigValue: bigValue1, smallValue: smallValue1),
-        Container(
-          width: 1, height: 48,
-          margin: const EdgeInsets.symmetric(horizontal: 20),
-          color: AppTokens.primary.withValues(alpha: 0.15),
-        ),
-        _infoCell(label2, value2: value2, bigValue: bigValue2, smallValue: smallValue2),
-      ],
-    );
-  }
-
-  Widget _infoCell(String label, {String? value2, String? value1, String? bigValue, String? smallValue}) {
-    return SizedBox(
-      width: 200,
+    // Single row: POS | HT | WT | WS — full width
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppTokens.surface.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: AppTokens.primary.withValues(alpha: 0.3), width: 2.5),
+        boxShadow: [
+          BoxShadow(color: AppTokens.primary.withValues(alpha: 0.06), blurRadius: 12),
+        ],
+      ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.baseline,
-        textBaseline: TextBaseline.alphabetic,
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          Text(label, style: TextStyle(
-            fontFamily: AppTokens.fontFamily, fontSize: 13,
-            fontWeight: FontWeight.w800, color: AppTokens.keyOff, letterSpacing: 2,
-          )),
-          const SizedBox(width: 50),
-          if (value1 != null)
-            Text(value1, style: TextStyle(
-              fontFamily: AppTokens.fontFamily, fontSize: 24,
-              fontWeight: FontWeight.w900, color: AppTokens.textPrimary,
-            ))
-          else
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(bigValue ?? '', style: TextStyle(
-                  fontFamily: AppTokens.fontFamily, fontSize: 24,
-                  fontWeight: FontWeight.w900, color: AppTokens.primary,
-                )),
-                Text(smallValue ?? '', style: TextStyle(
-                  fontFamily: AppTokens.fontFamily, fontSize: 14,
-                  fontWeight: FontWeight.w700, color: AppTokens.textSecondary,
-                )),
-              ],
-            ),
+          _infoCellCompact(context.tr('share_pos'), state.position.label),
+          _infoCellSep(),
+          _infoCellCompact(context.tr('share_ht'), '${hCm}cm', sub: "$hFeet'$hInc\""),
+          _infoCellSep(),
+          _infoCellCompact(context.tr('share_wt'), '${wKg}kg', sub: '${state.weightLb}lb'),
+          _infoCellSep(),
+          _infoCellCompact(context.tr('share_ws'), '${wsCm}cm', sub: "$wsFeet'$wsInc\""),
         ],
       ),
     );
   }
 
-  // ── Attributes (no section title) ─────────────────────────
+  // ── Info Cell (compact, for single-row body info) ─────────
+
+  Widget _infoCellCompact(String label, String value, {String? sub}) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(label, style: TextStyle(
+          fontFamily: AppTokens.fontFamily, fontSize: 11 * textScaleFactor,
+          fontWeight: FontWeight.w700, color: AppTokens.textSecondary,
+          letterSpacing: 2,
+        )),
+        const SizedBox(height: 2),
+        Text(value, style: TextStyle(
+          fontFamily: AppTokens.fontFamily, fontSize: 22 * textScaleFactor,
+          fontWeight: FontWeight.w900, color: AppTokens.textPrimary,
+        )),
+        if (sub != null) ...[
+          const SizedBox(height: 1),
+          Text(sub, style: TextStyle(
+            fontFamily: AppTokens.fontFamily, fontSize: 11 * textScaleFactor,
+            fontWeight: FontWeight.w500, color: AppTokens.textSecondary,
+          )),
+        ],
+      ],
+    );
+  }
+
+  Widget _infoCellSep() {
+    return Container(
+      width: 1, height: 40,
+      color: AppTokens.primary.withValues(alpha: 0.12),
+    );
+  }
+
+
 
   static const List<List<int>> _disciplineAttrIndices = [
     [0, 1, 2, 3, 4],
@@ -221,72 +178,42 @@ class ShareBuildCard extends StatelessWidget {
     [17, 18, 19, 20],
   ];
 
-  static const List<String> _fullAttrNames = [
-    'Close Shot', 'Driving Layup', 'Driving Dunk', 'Standing Dunk', 'Post Control',
-    'Mid-Range', 'Three-Point', 'Free Throw',
-    'Pass Accuracy', 'Ball Handle', 'Speed w/Ball',
-    'Interior Defense', 'Perimeter Defense', 'Steal', 'Block',
-    'Offensive Rebound', 'Defensive Rebound',
-    'Speed', 'Agility', 'Strength', 'Vertical',
+  static const List<String> _attrKeys = [
+    'close_shot', 'driving_layup', 'driving_dunk', 'standing_dunk', 'post_control',
+    'mid_range', 'three_point', 'free_throw',
+    'pass_accuracy', 'ball_handle', 'speed_with_ball',
+    'interior_defense', 'perimeter_defense', 'steal', 'block',
+    'offensive_rebound', 'defensive_rebound',
+    'speed', 'agility', 'strength', 'vertical',
   ];
 
-  Widget _buildAttributes() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: List.generate(6, (i) => _buildDisciplineGroup(
-        Discipline.values[i],
-        _disciplineAttrIndices[i],
-      )),
-    );
-  }
 
-  Widget _buildDisciplineGroup(Discipline discipline, List<int> attrIndices) {
-    final color = AppTokens.disciplineColours[discipline.name] ?? AppTokens.textSecondary;
-    final rows = <List<int>>[];
-    for (var i = 0; i < attrIndices.length; i += 2) {
-      rows.add(i + 1 < attrIndices.length
-          ? [attrIndices[i], attrIndices[i + 1]]
-          : [attrIndices[i]]);
-    }
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(bottom: 5),
-            child: Row(children: [
-              Container(width: 4, height: 16, color: color),
-              const SizedBox(width: 8),
-              Text(discipline.displayName.toUpperCase(), style: TextStyle(
-                fontFamily: AppTokens.fontFamily, fontSize: 17,
-                fontWeight: FontWeight.w800, color: color, letterSpacing: 2.5,
-              )),
-            ]),
-          ),
-          ...rows.map((row) => _buildAttributeRow(row, color)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAttributeRow(List<int> indices, Color color) {
+  Widget _buildAttributeRow(BuildContext context, List<int> indices, Color color) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 3),
       child: Row(children: [
-        Expanded(child: _buildAttributeItem(indices[0], color)),
+        Expanded(child: _buildAttributeItem(context, indices[0], color)),
         const SizedBox(width: 14),
-        Expanded(child: indices.length > 1 ? _buildAttributeItem(indices[1], color) : const SizedBox()),
+        Expanded(child: indices.length > 1 ? _buildAttributeItem(context, indices[1], color) : const SizedBox()),
       ]),
     );
   }
 
-  Widget _buildAttributeItem(int attrIndex, Color color) {
+  Widget _buildAttributeItem(BuildContext context, int attrIndex, Color color) {
     final attrState = state.getAttributeState(attrIndex);
-    final name = _fullAttrNames[attrIndex];
+    final name = context.tr(_attrKeys[attrIndex]);
+    final hasCB = attrState.hasCapBreakers;
     final cbGain = attrState.capBreakerGain;
-    final isMaxed = attrState.finalValue >= attrState.baseCap;
+
+    // Build cap breaker breakdown string (always expanded, e.g. "+2+2+2+2+2")
+    String cbBreakdown = '';
+    if (hasCB) {
+      final gains = state.getAppliedCapBreakerGains(attrIndex);
+      if (gains.isNotEmpty) {
+        cbBreakdown = gains.map((g) => '+$g').join('');
+      }
+    }
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
@@ -299,32 +226,112 @@ class ShareBuildCard extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Expanded(child: Text(name, style: TextStyle(
-            fontFamily: AppTokens.fontFamily, fontSize: 14,
-            fontWeight: FontWeight.w800, color: AppTokens.textSecondary,
+            fontFamily: AppTokens.fontFamily, fontSize: 14 * textScaleFactor,
+            fontWeight: FontWeight.w400, color: AppTokens.textSecondary,
           ), overflow: TextOverflow.ellipsis)),
+          if (hasCB && cbGain > 0)
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              Text('$cbBreakdown/', style: TextStyle(
+                fontFamily: AppTokens.fontFamily, fontSize: 10 * textScaleFactor,
+                fontWeight: FontWeight.w600, color: AppTokens.primary.withValues(alpha: 0.45),
+              )),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                decoration: BoxDecoration(
+                  color: AppTokens.primary.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(2),
+                  border: Border.all(color: AppTokens.primary.withValues(alpha: 0.4), width: 0.8),
+                ),
+                child: Text('+$cbGain', style: TextStyle(
+                  fontFamily: AppTokens.fontFamily, fontSize: 10 * textScaleFactor,
+                  fontWeight: FontWeight.w800, color: AppTokens.primary,
+                )),
+              ),
+            ]),
+          if (hasCB && cbGain == 0)
+            Text(cbBreakdown, style: TextStyle(
+              fontFamily: AppTokens.fontFamily, fontSize: 10 * textScaleFactor,
+              fontWeight: FontWeight.w600, color: AppTokens.primary.withValues(alpha: 0.45),
+            )),
           const SizedBox(width: 4),
           Text('${attrState.finalValue}', style: TextStyle(
-            fontFamily: AppTokens.fontFamily, fontSize: 18,
+            fontFamily: AppTokens.fontFamily, fontSize: 18 * textScaleFactor,
             fontWeight: FontWeight.w800,
-            color: isMaxed ? AppTokens.primary : AppTokens.textPrimary,
+            color: hasCB ? AppTokens.primary : AppTokens.textPrimary,
           )),
           Text('/${attrState.baseCap}', style: TextStyle(
-            fontFamily: AppTokens.fontFamily, fontSize: 13,
-            fontWeight: FontWeight.w800, color: AppTokens.keyOff,
+            fontFamily: AppTokens.fontFamily, fontSize: 13 * textScaleFactor,
+            fontWeight: FontWeight.w400, color: AppTokens.keyOff,
           )),
-          if (cbGain > 0) ...[
-            const SizedBox(width: 4),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-              decoration: BoxDecoration(
-                color: AppTokens.primary.withValues(alpha: 0.18),
-                borderRadius: BorderRadius.circular(2),
-                border: Border.all(color: AppTokens.primary.withValues(alpha: 0.3), width: 0.5),
-              ),
-              child: Text('+$cbGain', style: TextStyle(
-                fontFamily: AppTokens.fontFamily, fontSize: 12,
-                fontWeight: FontWeight.w800, color: AppTokens.primary,
+        ],
+      ),
+    );
+  }
+
+  // ── Merged Discipline Section (header + attributes + badges) ──
+
+  Widget _buildDisciplineSection(BuildContext context, Discipline discipline) {
+    final color = AppTokens.disciplineColours[discipline.name] ?? AppTokens.textSecondary;
+    final discIdx = Discipline.values.indexOf(discipline);
+    final tokens = state.getTokenBudget();
+    final slotsRemaining = state.getSlotsRemaining();
+    final slots = state.getSlotBudget();
+    final badges = _getBadgesForDiscipline(discipline);
+    final attrIndices = _disciplineAttrIndices[discIdx];
+
+    // Build attribute rows
+    final rows = <List<int>>[];
+    for (var i = 0; i < attrIndices.length; i += 2) {
+      rows.add(i + 1 < attrIndices.length
+          ? [attrIndices[i], attrIndices[i + 1]]
+          : [attrIndices[i]]);
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Header: Discipline name + Tokens + Slots ──
+          Padding(
+            padding: const EdgeInsets.only(bottom: 5),
+            child: Row(children: [
+              Container(width: 4, height: 16, color: color),
+              const SizedBox(width: 8),
+              Text(context.tr(discipline.name).toUpperCase(), style: TextStyle(
+                fontFamily: AppTokens.fontFamily, fontSize: 17 * textScaleFactor,
+                fontWeight: FontWeight.w800, color: color, letterSpacing: 2.5,
               )),
+              Container(
+                width: 1, height: 14,
+                margin: const EdgeInsets.symmetric(horizontal: 10),
+                color: AppTokens.primary.withValues(alpha: 0.15),
+              ),
+              Text('${context.tr("tokens")} ${tokens[discIdx]}', style: TextStyle(
+                fontFamily: AppTokens.fontFamily, fontSize: 14 * textScaleFactor,
+                fontWeight: FontWeight.w500, color: AppTokens.textSecondary,
+              )),
+              Container(
+                width: 1, height: 14,
+                margin: const EdgeInsets.symmetric(horizontal: 8),
+                color: AppTokens.primary.withValues(alpha: 0.1),
+              ),
+              Text('${context.tr("slots")} ${slotsRemaining[discIdx]}/${slots[discIdx]}', style: TextStyle(
+                fontFamily: AppTokens.fontFamily, fontSize: 14 * textScaleFactor,
+                fontWeight: FontWeight.w500, color: AppTokens.textSecondary,
+              )),
+            ]),
+          ),
+
+          // ── Attributes ──
+          ...rows.map((row) => _buildAttributeRow(context, row, color)),
+
+          // ── Badges ──
+          if (badges.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Wrap(
+              spacing: 5, runSpacing: 5,
+              children: badges.map((b) => _buildBadgeChip(b, context)).toList(),
             ),
           ],
         ],
@@ -332,66 +339,7 @@ class ShareBuildCard extends StatelessWidget {
     );
   }
 
-  // ── Badges Section (no section title, +1px fonts) ─────────
-
-  Widget _buildBadgesSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: Discipline.values.map((d) => _buildBadgeDisciplineRow(d)).toList(),
-    );
-  }
-
-  Widget _buildBadgeDisciplineRow(Discipline discipline) {
-    final color = AppTokens.disciplineColours[discipline.name] ?? AppTokens.textSecondary;
-    final badges = _getBadgesForDiscipline(discipline);
-    if (badges.isEmpty) return const SizedBox();
-
-    final discIdx = Discipline.values.indexOf(discipline);
-    final tokens = state.getTokenBudget();
-    final slots = state.getSlotBudget();
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(children: [
-            Container(width: 4, height: 14, color: color),
-            const SizedBox(width: 7),
-            Text(discipline.displayName.toUpperCase(), style: TextStyle(
-              fontFamily: AppTokens.fontFamily, fontSize: 16,
-              fontWeight: FontWeight.w900, color: color, letterSpacing: 2,
-            )),
-            Container(
-              width: 1, height: 14,
-              margin: const EdgeInsets.symmetric(horizontal: 10),
-              color: AppTokens.primary.withValues(alpha: 0.15),
-            ),
-            Text('Tokens ${tokens[discIdx]}', style: TextStyle(
-              fontFamily: AppTokens.fontFamily, fontSize: 14,
-              fontWeight: FontWeight.w700, color: AppTokens.textSecondary,
-            )),
-            Container(
-              width: 1, height: 14,
-              margin: const EdgeInsets.symmetric(horizontal: 8),
-              color: AppTokens.primary.withValues(alpha: 0.1),
-            ),
-            Text('Slots ${slots[discIdx]}', style: TextStyle(
-              fontFamily: AppTokens.fontFamily, fontSize: 14,
-              fontWeight: FontWeight.w700, color: AppTokens.textSecondary,
-            )),
-          ]),
-          const SizedBox(height: 5),
-          Wrap(
-            spacing: 5, runSpacing: 5,
-            children: badges.map((b) => _buildBadgeChip(b)).toList(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBadgeChip(BadgeDef badge) {
+  Widget _buildBadgeChip(BadgeDef badge, BuildContext context) {
     final equippedTier = state.equippedBadges[badge.badgeId];
     final isEquipped = equippedTier != null;
     final tierColor = isEquipped
@@ -416,10 +364,10 @@ class ShareBuildCard extends StatelessWidget {
           )),
           const SizedBox(width: 5),
         ],
-        Text(badge.displayName, style: TextStyle(
+        Text(context.tr(badge.name), style: TextStyle(
           fontFamily: AppTokens.fontFamily,
-          fontSize: isEquipped ? 15 : 13,
-          fontWeight: isEquipped ? FontWeight.w800 : FontWeight.w500,
+          fontSize: (isEquipped ? 15 : 13) * textScaleFactor,
+          fontWeight: isEquipped ? FontWeight.w600 : FontWeight.w300,
           color: isEquipped ? tierColor : AppTokens.keyOff,
         )),
       ]),
@@ -433,40 +381,4 @@ class ShareBuildCard extends StatelessWidget {
 
 // ── Background Painter (no corner diamonds) ─────────────────
 
-class _BackgroundPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    // Grid
-    final gridPaint = Paint()
-      ..color = AppTokens.primary.withValues(alpha: 0.018)
-      ..strokeWidth = 0.8;
-    for (double x = 0; x < size.width; x += 54) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
-    }
-    for (double y = 0; y < size.height; y += 54) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
-    }
 
-    // Side lines
-    final sidePaint = Paint()
-      ..color = AppTokens.primary.withValues(alpha: 0.06)
-      ..strokeWidth = 1;
-    canvas.drawLine(Offset(28, 0), Offset(28, size.height), sidePaint);
-    canvas.drawLine(Offset(size.width - 28, 0), Offset(size.width - 28, size.height), sidePaint);
-
-    // Top/Bottom border
-    final borderPaint = Paint()
-      ..color = AppTokens.primary.withValues(alpha: 0.15)
-      ..strokeWidth = 2;
-    canvas.drawLine(Offset(0, 4), Offset(size.width, 4), borderPaint);
-    canvas.drawLine(Offset(0, size.height - 4), Offset(size.width, size.height - 4), borderPaint);
-
-    // Horizontal accent bands
-    final bandPaint = Paint()..color = AppTokens.primary.withValues(alpha: 0.015);
-    canvas.drawRect(Rect.fromLTWH(0, size.height * 0.12, size.width, 50), bandPaint);
-    canvas.drawRect(Rect.fromLTWH(0, size.height * 0.88, size.width, 35), bandPaint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}

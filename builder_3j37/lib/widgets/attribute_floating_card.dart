@@ -46,7 +46,7 @@ class _AttributeFloatingCardState extends State<AttributeFloatingCard> {
     return AnimatedContainer(
       duration: AppTokens.animShort,
       curve: AppTokens.curveOut,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
         color: AppTokens.surfaceAlt,
         border: Border.all(color: AppTokens.primary.withValues(alpha: 0.4), width: 1),
@@ -77,7 +77,7 @@ class _AttributeFloatingCardState extends State<AttributeFloatingCard> {
                 ),
                 const Spacer(),
                 Text(
-                  'minimap',
+                  context.tr('minimap'),
                   style: TextStyle(
                     fontFamily: AppTokens.fontFamily,
                     fontSize: 9,

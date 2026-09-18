@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'theme/app_tokens.dart';
@@ -27,6 +29,14 @@ class Builder3J37App extends StatelessWidget {
       child: Consumer<LocaleService>(
         builder: (context, localeService, _) {
           return MaterialApp(
+            builder: (context, child) {
+              return MediaQuery(
+                data: MediaQuery.of(context).copyWith(
+                  textScaleFactor: kIsWeb ? 1.3 : (Platform.isAndroid ? 1.35 : 1.3),
+                ),
+                child: child!,
+              );
+            },
             locale: localeService.locale,
       title: '3J37 Builder',
       debugShowCheckedModeBanner: false,

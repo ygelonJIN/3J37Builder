@@ -15,6 +15,7 @@ import '../widgets/myb_page.dart';
 import '../widgets/myb_split_button.dart';
 import '../widgets/more_expandable_button.dart';
 import '../extensions/context_extensions.dart';
+import '../widgets/swipe_back_wrapper.dart';
 
 class BuilderScreen extends StatefulWidget {
   const BuilderScreen({super.key});
@@ -29,8 +30,9 @@ class _BuilderScreenState extends State<BuilderScreen> {
   bool _showBadges = false;
   bool _showMoves = false;
   bool _showMyB = false;
+  String? _editingBuildName;
   BuilderStateV3? _currentState;
-  bool _cardExpanded = true;
+  bool _cardExpanded = false;
   bool _minimapExpanded = false;
   bool _goalExpanded = false;
   final ScrollController _scrollController = ScrollController();
@@ -98,7 +100,12 @@ class _BuilderScreenState extends State<BuilderScreen> {
 
   void _saveAndOpenMyB() {
     if (_currentState == null) return;
-    BuildStorageService.instance.saveBuild(_currentState!).then((_) {
+    debugPrint('[SaveBuild] _editingBuildName: $_editingBuildName');
+    final saveName = _editingBuildName != null
+        ? '${context.tr("update")}/${_editingBuildName}'
+        : null;
+    debugPrint('[SaveBuild] saveName: $saveName');
+    BuildStorageService.instance.saveBuild(_currentState!, name: saveName).then((_) {
       if (mounted) setState(() => _showMyB = true);
     });
   }
@@ -130,7 +137,7 @@ class _BuilderScreenState extends State<BuilderScreen> {
     final isAtTop = offset <= 0;
     
     if (!isAtTop && oldExpanded != expanded) {
-      final adjustment = expanded ? 240.0 : -240.0;
+      final adjustment = expanded ? 260.0 : -260.0;
       if (_scrollController.hasClients) {
         _scrollController.jumpTo(offset + adjustment);
       }
@@ -176,17 +183,27 @@ class _BuilderScreenState extends State<BuilderScreen> {
       );
     }
 
+    final hasSubPage = _showBadges || _showMoves || _showMyB;
     return ChangeNotifierProvider(
       create: (_) => BuilderStateV3(),
-      child: Scaffold(
-        resizeToAvoidBottomInset: false,
-        backgroundColor: AppTokens.background,
-        body: Stack(
-          children: [
-            _buildHomeBody(),
-            if (_showBadges) _buildBadgesPage(),
-            if (_showMoves) _buildMovesPage(),
-          ],
+      child: PopScope(
+        canPop: !hasSubPage,
+        onPopInvokedWithResult: (didPop, result) {
+          if (didPop) return;
+          if (_showMyB) { _closeMyB(); return; }
+          if (_showMoves) { _closeMoves(); return; }
+          if (_showBadges) { _closeBadges(); return; }
+        },
+        child: Scaffold(
+          resizeToAvoidBottomInset: false,
+          backgroundColor: AppTokens.background,
+          body: Stack(
+            children: [
+              _buildHomeBody(),
+              if (_showBadges) _buildBadgesPage(),
+              if (_showMoves) _buildMovesPage(),
+            ],
+          ),
         ),
       ),
     );
@@ -195,7 +212,7 @@ class _BuilderScreenState extends State<BuilderScreen> {
   Widget _buildHomeBody() {
     final baseTopInset = AppTokens.contentTopInset + 50; // 180, includes all 3 cards minimized
     final expandedExtraHeight = _cardExpanded ? 155.0 : 0.0;
-    final minimapExtraHeight = _minimapExpanded ? 240.0 : 0.0;
+    final minimapExtraHeight = _minimapExpanded ? 260.0 : 0.0;
     final goalExtraHeight = _goalExpanded ? 60.0 : 0.0;
     final topInset = baseTopInset + expandedExtraHeight + minimapExtraHeight + goalExtraHeight;
 
@@ -299,7 +316,12 @@ class _BuilderScreenState extends State<BuilderScreen> {
                 ),
               ),
             ),
-            if (_showMyB) MyBPage(onClose: _closeMyB, builderState: state),
+            if (_showMyB) MyBPage(
+                  onClose: _closeMyB,
+                  onEditBuild: (name) { debugPrint('[EditBuild] Setting _editingBuildName: $name'); setState(() => _editingBuildName = name); },
+                  onSwipeBack: _closeMyB,
+                  builderState: state,
+                ),
             if (!_showMyB) Positioned(
               bottom: 0,
               left: 0,
@@ -311,14 +333,14 @@ class _BuilderScreenState extends State<BuilderScreen> {
                     AppTokens.pageEdge,
                     12,
                     AppTokens.pageEdge,
-                    0,
+                    20,
                   ),
                   child: Row(
                     children: [
                       const Spacer(),
                       MoreExpandableButton(
                         key: _moreButtonKey,
-                        onSave: _saveBuild,
+                        onSave: _saveAndOpenMyB,
                         onMyBuilds: _openMyB,
                         onMoves: _openMoves,
                         onBadges: _openBadges,
@@ -336,75 +358,78 @@ class _BuilderScreenState extends State<BuilderScreen> {
 
   Widget _buildBadgesPage() {
     return Positioned.fill(
-      child: Container(
-        color: AppTokens.background,
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.fromLTRB(
-                  AppTokens.pageEdge,
-                  AppTokens.contentTopInset,
-                  AppTokens.pageEdge,
-                  AppTokens.contentBottomInset,
-                ),
-                child: const BadgePanel(),
-              ),
-            ),
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: IgnorePointer(
-                child: SizedBox(
-                  height: AppTokens.topScrimHeight,
-                  child: const DecoratedBox(
-                    decoration: BoxDecoration(gradient: AppTokens.topScrim),
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: SafeArea(
-                bottom: false,
-                child: Padding(
+      child: SwipeBackWrapper(
+        onSwipeBack: _closeBadges,
+        child: Container(
+          color: AppTokens.background,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: SingleChildScrollView(
                   padding: EdgeInsets.fromLTRB(
                     AppTokens.pageEdge,
-                    AppTokens.topChromeInset,
+                    AppTokens.contentTopInset,
                     AppTokens.pageEdge,
-                    0,
+                    AppTokens.contentBottomInset,
                   ),
-                  child: Row(
-                    children: [
-                      _buildPillButton(
-                        icon: Icons.arrow_back_rounded,
-                        label: '',
-                        onTap: _closeBadges,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(context.tr('badges'), style: AppTokens.pageTitle),
-                    ],
+                  child: const BadgePanel(),
+                ),
+              ),
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: IgnorePointer(
+                  child: SizedBox(
+                    height: AppTokens.topScrimHeight,
+                    child: const DecoratedBox(
+                      decoration: BoxDecoration(gradient: AppTokens.topScrim),
+                    ),
                   ),
                 ),
               ),
-            ),
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: IgnorePointer(
-                child: SizedBox(
-                  height: AppTokens.bottomScrimHeight + MediaQuery.of(context).padding.bottom,
-                  child: const DecoratedBox(
-                    decoration: BoxDecoration(gradient: AppTokens.bottomScrim),
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: SafeArea(
+                  bottom: false,
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      AppTokens.pageEdge,
+                      AppTokens.topChromeInset,
+                      AppTokens.pageEdge,
+                      0,
+                    ),
+                    child: Row(
+                      children: [
+                        _buildPillButton(
+                          icon: Icons.arrow_back_rounded,
+                          label: '',
+                          onTap: _closeBadges,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(context.tr('badges'), style: AppTokens.pageTitle),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: IgnorePointer(
+                  child: SizedBox(
+                    height: AppTokens.bottomScrimHeight + MediaQuery.of(context).padding.bottom,
+                    child: const DecoratedBox(
+                      decoration: BoxDecoration(gradient: AppTokens.bottomScrim),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -412,75 +437,78 @@ class _BuilderScreenState extends State<BuilderScreen> {
 
   Widget _buildMovesPage() {
     return Positioned.fill(
-      child: Container(
-        color: AppTokens.background,
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.fromLTRB(
-                  AppTokens.pageEdge,
-                  AppTokens.contentTopInset,
-                  AppTokens.pageEdge,
-                  AppTokens.contentBottomInset,
-                ),
-                child: AnimationPanel(),
-              ),
-            ),
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: IgnorePointer(
-                child: SizedBox(
-                  height: AppTokens.topScrimHeight,
-                  child: const DecoratedBox(
-                    decoration: BoxDecoration(gradient: AppTokens.topScrim),
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: SafeArea(
-                bottom: false,
-                child: Padding(
+      child: SwipeBackWrapper(
+        onSwipeBack: _closeMoves,
+        child: Container(
+          color: AppTokens.background,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: SingleChildScrollView(
                   padding: EdgeInsets.fromLTRB(
                     AppTokens.pageEdge,
-                    AppTokens.topChromeInset,
+                    AppTokens.contentTopInset,
                     AppTokens.pageEdge,
-                    0,
+                    AppTokens.contentBottomInset,
                   ),
-                  child: Row(
-                    children: [
-                      _buildPillButton(
-                        icon: Icons.arrow_back_rounded,
-                        label: '',
-                        onTap: _closeMoves,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(context.tr('moves'), style: AppTokens.pageTitle),
-                    ],
+                  child: AnimationPanel(),
+                ),
+              ),
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: IgnorePointer(
+                  child: SizedBox(
+                    height: AppTokens.topScrimHeight,
+                    child: const DecoratedBox(
+                      decoration: BoxDecoration(gradient: AppTokens.topScrim),
+                    ),
                   ),
                 ),
               ),
-            ),
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: IgnorePointer(
-                child: SizedBox(
-                  height: AppTokens.bottomScrimHeight + MediaQuery.of(context).padding.bottom,
-                  child: const DecoratedBox(
-                    decoration: BoxDecoration(gradient: AppTokens.bottomScrim),
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: SafeArea(
+                  bottom: false,
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      AppTokens.pageEdge,
+                      AppTokens.topChromeInset,
+                      AppTokens.pageEdge,
+                      0,
+                    ),
+                    child: Row(
+                      children: [
+                        _buildPillButton(
+                          icon: Icons.arrow_back_rounded,
+                          label: '',
+                          onTap: _closeMoves,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(context.tr('moves'), style: AppTokens.pageTitle),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: IgnorePointer(
+                  child: SizedBox(
+                    height: AppTokens.bottomScrimHeight + MediaQuery.of(context).padding.bottom,
+                    child: const DecoratedBox(
+                      decoration: BoxDecoration(gradient: AppTokens.bottomScrim),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

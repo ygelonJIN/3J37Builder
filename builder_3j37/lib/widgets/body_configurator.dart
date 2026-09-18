@@ -120,7 +120,7 @@ class _BodyControl extends StatelessWidget {
                   style: AppTokens.caption.copyWith(
                     color: AppTokens.textPrimary,
                     fontSize: 11,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
                 TextSpan(

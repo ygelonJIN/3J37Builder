@@ -15,7 +15,7 @@ class LocaleService extends ChangeNotifier {
   Future<void> _loadLocale() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final localeCode = prefs.getString(_prefKey) ?? 'en_US';
+      final localeCode = prefs.getString(_prefKey) ?? 'zh_CN';
       final parts = localeCode.split('_');
       _locale = Locale(parts[0], parts.length > 1 ? parts[1] : '');
       debugPrint('[LocaleService] Loaded locale: $_locale');

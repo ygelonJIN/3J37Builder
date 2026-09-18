@@ -40,7 +40,7 @@ class _GoalCardState extends State<GoalCard> {
     final attrCount = goalData.attributeCount;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
         color: AppTokens.surfaceAlt,
         border: Border.all(color: AppTokens.primary.withValues(alpha: 0.4), width: 1),
@@ -62,13 +62,13 @@ class _GoalCardState extends State<GoalCard> {
                 children: [
                   Row(
                     children: [
-                      Text(context.tr('go'), style: AppTokens.brandMark.copyWith(fontSize: 14, letterSpacing: 2, color: AppTokens.textSecondary)),
+                      Text(context.tr('goal'), style: AppTokens.brandMark.copyWith(fontSize: 14, letterSpacing: 2, color: AppTokens.textSecondary)),
                       const Spacer(),
                       Text('${context.tr("badges")}:$badgeCount', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 9, fontWeight: FontWeight.w700, color: AppTokens.textSecondary)),
                       const SizedBox(width: 8),
                       Text('${context.tr("moves")}:$moveCount', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 9, fontWeight: FontWeight.w700, color: AppTokens.textSecondary)),
                       const SizedBox(width: 8),
-                      Text('Attr:$attrCount', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 9, fontWeight: FontWeight.w700, color: AppTokens.textSecondary)),
+                      Text('${context.tr("attribute_short")}:$attrCount', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 9, fontWeight: FontWeight.w700, color: AppTokens.textSecondary)),
                       const SizedBox(width: 8),
                       Icon(_expanded ? Icons.expand_less : Icons.expand_more, size: 16, color: AppTokens.textSecondary),
                     ],
@@ -112,7 +112,7 @@ class _GoalCardState extends State<GoalCard> {
                       const SizedBox(height: 6),
                     ],
                     if (goalData.attributes.isNotEmpty) ...[
-                      _buildSectionHeader('Attributes'),
+                      _buildSectionHeader(context.tr('attribute_allocation')),
                       ...goalData.attributes.map((a) => _buildAttributeItem(a)),
                       const SizedBox(height: 6),
                     ],
@@ -230,7 +230,7 @@ class _GoalCardState extends State<GoalCard> {
               Expanded(
                 child: Text.rich(
                   TextSpan(children: [
-                    TextSpan(text: badge.badgeName, style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 11, fontWeight: FontWeight.w700, color: AppTokens.textSecondary)),
+                    TextSpan(text: context.tr(badge.badgeName), style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 11, fontWeight: FontWeight.w700, color: AppTokens.textSecondary)),
                     TextSpan(text: '  ', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 11)),
                     TextSpan(text: badge.tier, style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 11, fontWeight: FontWeight.w800, color: tierColor)),
                   ]),
@@ -557,7 +557,7 @@ class _GoalAddDialogContentState extends State<_GoalAddDialogContent> {
               });
             },
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               decoration: BoxDecoration(
                 color: selected ? AppTokens.primary : AppTokens.surface,
                 border: Border.all(color: selected ? AppTokens.primary : AppTokens.keyOff.withValues(alpha: 0.3), width: 1),
@@ -649,7 +649,7 @@ class _GoalAddDialogContentState extends State<_GoalAddDialogContent> {
                 return GestureDetector(
                   onTap: () => setState(() { _selectedTier = tier; _tierDropdownOpen = false; _errorMessage = null; }),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     decoration: BoxDecoration(
                       color: selected ? AppTokens.primary.withValues(alpha: 0.1) : Colors.transparent,
                       border: Border(
@@ -917,7 +917,7 @@ class _GoalAddDialogContentState extends State<_GoalAddDialogContent> {
     if (_tabIndex == 0) {
       // Badge
       if (_selectedTier == null) {
-        setState(() { _errorMessage = 'Please select a badge tier'; });
+        setState(() { _errorMessage = context.tr('please_select_badge_tier'); });
         return;
       }
       final badgeId = int.parse(_selectedId!);

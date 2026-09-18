@@ -280,7 +280,7 @@ class CapBreakersPanelV3 extends StatelessWidget {
           children: [
             const Text(context.tr('clear_all_cap_breakers'), style: AppTokens.cardTitleStyle),
             const SizedBox(height: 16),
-            Text('Remove all ${state.totalCapBreakersApplied} cap breakers?', style: AppTokens.body),
+            Text(context.tr('remove_all_cap_breakers_confirm').replaceAll('{count}', '${state.totalCapBreakersApplied}').replaceAll('{item}', context.tr('cap_breakers'))', style: AppTokens.body),
             const SizedBox(height: 20),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,

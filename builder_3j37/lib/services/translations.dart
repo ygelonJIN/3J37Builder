@@ -15,6 +15,7 @@ class Translations {
       'share': 'Share',
       'search': 'Search',
       'rename': 'Rename',
+      'edit': 'Open',
       'equip': 'Equip',
       'unequip': 'Unequip',
       'undo_last': 'Undo Last',
@@ -28,11 +29,17 @@ class Translations {
       'build_saved': 'Build saved',
       'save_failed': 'Save Failed',
       'failed_to_generate_image': 'Failed to generate image',
+      'share_error': 'Share failed',
       'saved_to_gallery': 'Saved to Gallery',
       'select_badge_tier': 'Select badge tier',
       'attribute_requirements': 'Attribute Requirements',
       'takeover_abilities': 'Takeover Abilities',
       'go': 'GO',
+      'goal': 'Goal',
+      'attribute_short': 'Attr',
+      'minimap': 'Minimap',
+
+
       'ok': 'OK',
       'add': 'Add',
       'added': 'Added',
@@ -77,6 +84,7 @@ class Translations {
       'defense': 'Defense',
       'rebounding': 'Rebounding',
       'physical': 'Physical',
+      'physicals': 'Physicals',
 
       // ── Badge Tiers (5) ──
       'bronze': 'Bronze',
@@ -94,6 +102,7 @@ class Translations {
 
       // ── Body (3) ──
       'height': 'Height',
+      'current': 'Current',
       'weight': 'Weight',
       'wingspan': 'Wingspan',
 
@@ -119,7 +128,7 @@ class Translations {
       'upgrade_cost': 'Upgrade Cost',
       'attribute_upgrade': 'Attribute Upgrade',
       'attribute_net_gain': 'Attribute Net Gain',
-      'hard_cap': 'Hard Cap',
+      'hard_cap': 'Max Cap',
       'template_potential': 'Template Potential',
       'max_badge_potential': 'Maximum Badge Potential',
       'token_explanation': 'Token Explanation',
@@ -171,7 +180,7 @@ class Translations {
       'all_actions': 'All Actions',
       'reset_cap_breakers': 'Reset Cap Breakers',
       'clear_all_cap_breakers': 'Clear All Cap Breakers',
-      'remove_all_cap_breakers_confirm': 'Remove all {count} cap breakers?',
+      'remove_all_cap_breakers_confirm': 'Remove all {count} {item}?',
       'cannot_apply_cap_breaker': 'Cannot apply cap breaker: no more headroom or max reached',
 
       // ── Error Messages (20) ──
@@ -270,7 +279,27 @@ class Translations {
       'wall_up': 'Wall Up',
       'work_horse': 'Work Horse',
 
+      'save_image': 'Save Image',
+      // ── Share Card ──
+      'share_pos': 'POS',
+      'share_ht': 'HT',
+      'share_wt': 'WT',
+      'share_ws': 'WS',
+      'share_attributes': 'ATTRIBUTES',
+      'share_ovr': 'OVR',
+      'export_code': 'Export Code',
+      'code_copied': 'Code copied to clipboard',
+      'import_build': 'Import Build',
+      'update': 'Update',
+      'import': 'Import',
+      'paste_code_here': 'Paste build code here...',
+      'import_success': 'Build imported successfully',
+      'import_failed': 'Import failed, please check the code',
+      'success': 'Success',
+      'failed': 'Failed',
+
     },
+
     'zh': {
       // ── App Chrome ──
       'app_title': '3J37 BUILDER',
@@ -286,6 +315,7 @@ class Translations {
       'share': '分享',
       'search': '搜索',
       'rename': '重命名',
+      'edit': '进入',
       'equip': '装备',
       'unequip': '卸下',
       'undo_last': '撤销上一步',
@@ -299,11 +329,17 @@ class Translations {
       'build_saved': '建模已保存',
       'save_failed': '保存失败',
       'failed_to_generate_image': '生成图片失败',
+      'share_error': '分享失败',
       'saved_to_gallery': '已保存到相册',
       'select_badge_tier': '选择徽章等级',
       'attribute_requirements': '属性要求',
       'takeover_abilities': '主宰能力',
       'go': 'GO',
+      'goal': '目标',
+      'attribute_short': '属性',
+      'minimap': '缩略图',
+
+
       'ok': '好的',
       'add': '添加',
       'added': '已添加',
@@ -348,6 +384,7 @@ class Translations {
       'defense': '防守',
       'rebounding': '篮板',
       'physical': '身体',
+      'physicals': '身体',
 
       // ── Badge Tiers (5) ──
       'bronze': '铜',
@@ -365,6 +402,7 @@ class Translations {
 
       // ── Body (3) ──
       'height': '身高',
+      'current': '当前',
       'weight': '体重',
       'wingspan': '臂展',
 
@@ -378,7 +416,7 @@ class Translations {
       'attribute_allocation': '属性分配',
       'build_result': '建模结果',
       'tokens': '代币',
-      'slots': '槽',
+      'slots': '槽位',
       'badge_slots': '徽章槽位',
       'badge_fusion': '徽章融合',
       'available_badges': '可用徽章',
@@ -390,7 +428,7 @@ class Translations {
       'upgrade_cost': '升级成本',
       'attribute_upgrade': '属性升级',
       'attribute_net_gain': '属性净增',
-      'hard_cap': '属性硬上限',
+      'hard_cap': '破帽上限',
       'template_potential': '模板潜力',
       'max_badge_potential': '最高徽章潜力',
       'token_explanation': '代币说明',
@@ -442,7 +480,7 @@ class Translations {
       'all_actions': '全部动作',
       'reset_cap_breakers': '重置破帽器',
       'clear_all_cap_breakers': '清除全部破帽器',
-      'remove_all_cap_breakers_confirm': '移除全部 {count} 个破帽器？',
+      'remove_all_cap_breakers_confirm': '移除全部 {count} 个{item}？',
       'cannot_apply_cap_breaker': '无法应用破帽器：已无空间或已达上限',
 
       // ── Error Messages (20) ──
@@ -540,6 +578,25 @@ class Translations {
       'versatile_visionary': '全面梦想家',
       'wall_up': '举手干扰',
       'work_horse': '争球狂人',
+
+      'save_image': '保存图片',
+      // ── Share Card ──
+      'share_pos': '位置',
+      'share_ht': '身高',
+      'share_wt': '体重',
+      'share_ws': '臂展',
+      'share_attributes': '属性',
+      'share_ovr': '总评',
+      'export_code': '导出代码',
+      'code_copied': '代码已复制到剪贴板',
+      'import_build': '导入建模',
+      'update': '更新',
+      'import': '导入',
+      'paste_code_here': '在此粘贴建模代码...',
+      'import_success': '建模导入成功',
+      'import_failed': '导入失败，请检查代码',
+      'success': '成功',
+      'failed': '失败',
 
     },
   };

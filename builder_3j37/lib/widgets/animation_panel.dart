@@ -21,10 +21,15 @@ class _AnimationPanelState extends State<AnimationPanel> {
   final FocusNode _searchFocus = FocusNode();
   String _searchQuery = '';
 
+  String _localeKey(BuildContext context) {
+    return context.localeService.isChinese ? 'ZH-HANS' : 'EN';
+  }
+
   @override
   Widget build(BuildContext context) {
     final loader = DatasetLoader();
     final tabs = loader.animTabs;
+    final localeKey = _localeKey(context);
     if (tabs.isEmpty) {
       return Text(context.tr('no_animations_loaded'), style: AppTokens.caption);
     }
@@ -50,7 +55,7 @@ class _AnimationPanelState extends State<AnimationPanel> {
                   borderRadius: BorderRadius.circular(AppTokens.radius),
                 ),
                 child: Text(
-                  tabs[i].getDisplayName(),
+                  tabs[i].getDisplayName(localeKey),
                   style: AppTokens.caption.copyWith(
                     color: isActive ? AppTokens.onPrimary : AppTokens.textSecondary,
                     fontWeight: isActive ? FontWeight.w800 : FontWeight.w800,
@@ -86,9 +91,9 @@ class _AnimationPanelState extends State<AnimationPanel> {
         ...tabs[_selectedTab].groups
             .where((group) {
               if (_searchQuery.isEmpty) return true;
-              return group.anims.any((a) => a.getDisplayName().toLowerCase().contains(_searchQuery.toLowerCase()));
+              return group.anims.any((a) => a.getDisplayName(localeKey).toLowerCase().contains(_searchQuery.toLowerCase()));
             })
-            .map((group) => _AnimGroupWidget(group: group, searchQuery: _searchQuery)),
+            .map((group) => _AnimGroupWidget(group: group, searchQuery: _searchQuery, localeKey: localeKey)),
       ],
     );
   }
@@ -97,7 +102,8 @@ class _AnimationPanelState extends State<AnimationPanel> {
 class _AnimGroupWidget extends StatefulWidget {
   final AnimGroup group;
   final String searchQuery;
-  const _AnimGroupWidget({required this.group, this.searchQuery = ''});
+  final String localeKey;
+  const _AnimGroupWidget({required this.group, this.searchQuery = '', required this.localeKey});
 
   @override
   State<_AnimGroupWidget> createState() => _AnimGroupWidgetState();
@@ -116,7 +122,7 @@ class _AnimGroupWidgetState extends State<_AnimGroupWidget> {
     // Count unlocked animations (filtered)
     int unlocked = 0;
     for (final anim in group.anims) {
-      if (hasSearch && !anim.getDisplayName().toLowerCase().contains(widget.searchQuery.toLowerCase())) continue;
+      if (hasSearch && !anim.getDisplayName(widget.localeKey).toLowerCase().contains(widget.searchQuery.toLowerCase())) continue;
       if (_isUnlocked(anim, ratings)) unlocked++;
     }
 
@@ -139,7 +145,7 @@ class _AnimGroupWidgetState extends State<_AnimGroupWidget> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(group.getDisplayName(), style: AppTokens.body.copyWith(fontSize: 13)),
+                        Text(group.getDisplayName(widget.localeKey), style: AppTokens.body.copyWith(fontSize: 13)),
                         const SizedBox(height: 2),
                         Text('$unlocked/${group.anims.length} unlocked', style: AppTokens.caption.copyWith(fontSize: 10)),
                       ],
@@ -159,9 +165,9 @@ class _AnimGroupWidgetState extends State<_AnimGroupWidget> {
             ...group.anims
                 .where((anim) {
                   if (widget.searchQuery.isEmpty) return true;
-                  return anim.getDisplayName().toLowerCase().contains(widget.searchQuery.toLowerCase());
+                  return anim.getDisplayName(widget.localeKey).toLowerCase().contains(widget.searchQuery.toLowerCase());
                 })
-                .map((anim) => _AnimEntryWidget(anim: anim)),
+                .map((anim) => _AnimEntryWidget(anim: anim, localeKey: widget.localeKey)),
           ],
         ],
       ),
@@ -180,7 +186,8 @@ class _AnimGroupWidgetState extends State<_AnimGroupWidget> {
 
 class _AnimEntryWidget extends StatelessWidget {
   final AnimEntry anim;
-  const _AnimEntryWidget({required this.anim});
+  final String localeKey;
+  const _AnimEntryWidget({required this.anim, required this.localeKey});
 
   @override
   Widget build(BuildContext context) {
@@ -205,7 +212,7 @@ class _AnimEntryWidget extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                anim.getDisplayName(),
+                anim.getDisplayName(localeKey),
                 style: AppTokens.caption.copyWith(
                   color: isUnlocked ? AppTokens.textPrimary : AppTokens.keyOff,
                   fontSize: 12,
@@ -286,7 +293,7 @@ class _AnimEntryWidget extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(anim.getDisplayName(), style: AppTokens.cardTitleStyle),
+                  child: Text(anim.getDisplayName(localeKey), style: AppTokens.cardTitleStyle),
                 ),
               ],
             ),

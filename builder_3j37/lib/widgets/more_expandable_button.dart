@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import '../theme/app_tokens.dart';
-import '../services/locale_service.dart';
 import '../extensions/context_extensions.dart';
 import 'language_switch_button.dart';
 
@@ -28,7 +26,9 @@ class MoreExpandableButtonState extends State<MoreExpandableButton>
   bool _expanded = false;
   bool _justToggled = false;
   late AnimationController _controller;
-  late Animation<double> _expandAnimation;
+  late CurvedAnimation _expandAnimation;
+  final GlobalKey _btnKey = GlobalKey();
+  OverlayEntry? _overlay;
 
   @override
   void initState() {
@@ -41,20 +41,22 @@ class MoreExpandableButtonState extends State<MoreExpandableButton>
       parent: _controller,
       curve: AppTokens.curveOut,
     );
+    _expandAnimation.addListener(() => _overlay?.markNeedsBuild());
   }
 
   @override
   void dispose() {
+    _removeOverlay();
+    _expandAnimation.dispose();
     _controller.dispose();
     super.dispose();
   }
 
   void collapse() {
     if (_expanded && !_justToggled) {
-      setState(() {
-        _expanded = false;
-        _controller.reverse();
-      });
+      _expanded = false;
+      _controller.reverse().whenComplete(_removeOverlay);
+      setState(() {});
     }
   }
 
@@ -62,77 +64,168 @@ class MoreExpandableButtonState extends State<MoreExpandableButton>
 
   void _toggle() {
     _justToggled = true;
-    Future.delayed(const Duration(milliseconds: 400), () {
-      _justToggled = false;
-    });
-    setState(() {
-      _expanded = !_expanded;
-      if (_expanded) {
-        _controller.forward();
-      } else {
-        _controller.reverse();
-      }
-    });
+    Future.delayed(const Duration(milliseconds: 400), () => _justToggled = false);
+    _expanded = !_expanded;
+    if (_expanded) {
+      _showOverlay();
+      _controller.forward();
+    } else {
+      _controller.reverse().whenComplete(_removeOverlay);
+    }
+    setState(() {});
   }
 
-  void _onItemTap(VoidCallback callback) {
-    setState(() {
-      _expanded = false;
-      _controller.reverse();
+  void _onItemTap(VoidCallback cb) {
+    _expanded = false;
+    _controller.reverse().whenComplete(() {
+      _removeOverlay();
+      cb();
     });
-    callback();
+    setState(() {});
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        SizeTransition(
-          sizeFactor: _expandAnimation,
-          axisAlignment: 1.0,
-          child: FadeTransition(
-            opacity: _expandAnimation,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                _buildMenuItem(
-                  label: context.tr('moves'),
-                  onTap: () => _onItemTap(widget.onMoves),
-                ),
-                const SizedBox(height: 8),
-                _buildMenuItem(
-                  label: context.tr('badges'),
-                  onTap: () => _onItemTap(widget.onBadges),
-                ),
-                const SizedBox(height: 8),
-                _buildMenuItem(
-                  label: context.tr('my_builds'),
-                  onTap: () => _onItemTap(widget.onMyBuilds),
-                  highlight: true,
-                ),
-                const SizedBox(height: 8),
-                _buildMenuItem(
-                  label: context.tr('save'),
-                  onTap: () => _onItemTap(widget.onSave),
-                  highlight: true,
-                ),
-                const SizedBox(height: 8),
-                const LanguageSwitchButton(),
-                const SizedBox(height: 8),
-              ],
+  // ── Overlay ────────────────────────────────────────────
+
+  void _showOverlay() {
+    _removeOverlay();
+    _overlay = OverlayEntry(builder: _buildOverlay);
+    Overlay.of(context).insert(_overlay!);
+  }
+
+  void _removeOverlay() {
+    _overlay?.remove();
+    _overlay = null;
+  }
+
+  Widget _buildOverlay(BuildContext ctx) {
+    final rb = _btnKey.currentContext?.findRenderObject() as RenderBox?;
+    if (rb == null) return const SizedBox.shrink();
+    final sz = rb.size;
+    final pos = rb.localToGlobal(Offset.zero);
+    final v = _expandAnimation.value;
+    if (v <= 0) return const SizedBox.shrink();
+
+    return Directionality(
+      textDirection: TextDirection.ltr,
+      child: DefaultTextStyle(
+        style: const TextStyle(decoration: TextDecoration.none),
+        child: Stack(
+          children: [
+            // Tap-outside barrier
+            Positioned.fill(
+              child: GestureDetector(
+                onTap: () {
+                  _expanded = false;
+                  _controller.reverse().whenComplete(_removeOverlay);
+                  setState(() {});
+                },
+                behavior: HitTestBehavior.translucent,
+              ),
             ),
-          ),
+            // Expanded items above More button (grows upward)
+            Positioned(
+              right: MediaQuery.of(ctx).size.width - pos.dx - sz.width,
+              bottom: MediaQuery.of(ctx).size.height - pos.dy + 8,
+              child: IgnorePointer(
+                ignoring: v < 0.3,
+                child: Opacity(
+                  opacity: v,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      const LanguageSwitchButton(),
+                      const SizedBox(height: 8),
+                      _menuItem(
+                        label: ctx.tr('my_builds'),
+                        onTap: () => _onItemTap(widget.onMyBuilds),
+                        highlight: true,
+                      ),
+                      const SizedBox(height: 8),
+                      _menuItem(
+                        label: ctx.tr('save'),
+                        onTap: () => _onItemTap(widget.onSave),
+                        highlight: true,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            // Moves + Badges (grows leftward from More button)
+            Positioned(
+              right: MediaQuery.of(ctx).size.width - pos.dx + 8,
+              bottom: MediaQuery.of(ctx).size.height - pos.dy - sz.height,
+              child: IgnorePointer(
+                ignoring: v < 0.3,
+                child: Opacity(
+                  opacity: v,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _menuItem(
+                        label: ctx.tr('moves'),
+                        onTap: () => _onItemTap(widget.onMoves),
+                      ),
+                      const SizedBox(width: 8),
+                      _menuItem(
+                        label: ctx.tr('badges'),
+                        onTap: () => _onItemTap(widget.onBadges),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
-        _buildMainButton(),
-      ],
+      ),
     );
   }
 
-  Widget _buildMainButton() {
+  Widget _menuItem({
+    required String label,
+    required VoidCallback onTap,
+    bool highlight = false,
+  }) {
+    final bg = highlight ? AppTokens.surfaceAlt : AppTokens.surface;
+    final bc = highlight ? AppTokens.primary : AppTokens.textSecondary;
+    final tc = highlight ? AppTokens.primary : AppTokens.textPrimary;
     return Material(
+      color: bg,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppTokens.radius),
+        side: BorderSide(color: bc, width: 1),
+      ),
+      elevation: 4,
+      shadowColor: AppTokens.buttonShadow,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppTokens.radius),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: tc,
+              fontFamily: AppTokens.fontFamily,
+              decoration: TextDecoration.none,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Build ──────────────────────────────────────────────
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      key: _btnKey,
       color: _expanded ? AppTokens.primary : AppTokens.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppTokens.radius),
@@ -148,17 +241,18 @@ class MoreExpandableButtonState extends State<MoreExpandableButton>
         onTap: _toggle,
         borderRadius: BorderRadius.circular(AppTokens.radius),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
                 context.tr('more'),
                 style: TextStyle(
-                  fontSize: 13.5,
+                  fontSize: 14,
                   fontWeight: FontWeight.w800,
                   color: _expanded ? AppTokens.onPrimary : AppTokens.textPrimary,
                   fontFamily: AppTokens.fontFamily,
+                  decoration: TextDecoration.none,
                 ),
               ),
               const SizedBox(width: 6),
@@ -172,43 +266,6 @@ class MoreExpandableButtonState extends State<MoreExpandableButton>
                 ),
               ),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMenuItem({
-    required String label,
-    required VoidCallback onTap,
-    bool highlight = false,
-  }) {
-    final bgColor = highlight ? AppTokens.surfaceAlt : AppTokens.surface;
-    final borderColor = highlight ? AppTokens.primary : AppTokens.textSecondary;
-    final textColor = highlight ? AppTokens.primary : AppTokens.textPrimary;
-
-    return Material(
-      color: bgColor,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTokens.radius),
-        side: BorderSide(color: borderColor, width: 1),
-      ),
-      elevation: 2,
-      shadowColor: AppTokens.buttonShadow,
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppTokens.radius),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 13.5,
-              fontWeight: FontWeight.w800,
-              color: textColor,
-              fontFamily: AppTokens.fontFamily,
-            ),
           ),
         ),
       ),

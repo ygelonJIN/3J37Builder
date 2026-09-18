@@ -35,6 +35,7 @@ class BadgePanel extends StatelessWidget {
           totalBudget: totalBudget,
           totalRemaining: totalRemaining,
           slotBudget: state.getSlotBudget(),
+          slotRemaining: state.getSlotsRemaining(),
         ),
         const SizedBox(height: 16),
         ...Discipline.values.map((disc) {
@@ -43,6 +44,7 @@ class BadgePanel extends StatelessWidget {
           final colour = AppTokens.disciplineColours[disc.name] ?? AppTokens.textSecondary;
           final tokenRemaining = remaining[disc.index];
           final tokenBudget = budget[disc.index];
+          final slotRemaining = state.getSlotsRemaining();
           final slotBudget = state.getSlotBudget();
           
           return Column(
@@ -64,7 +66,7 @@ class BadgePanel extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      '$tokenRemaining/$tokenBudget Tokens ${slotBudget[disc.index]} Slots',
+                      '$tokenRemaining/$tokenBudget ${context.tr("tokens")} ${slotRemaining[disc.index]}/${slotBudget[disc.index]} ${context.tr("slots")}',
                       style: TextStyle(
                         fontFamily: AppTokens.fontFamily,
                         fontSize: 14,
@@ -97,6 +99,7 @@ class _TokenBudgetRow extends StatelessWidget {
   final int totalBudget;
   final int totalRemaining;
   final List<int> slotBudget;
+  final List<int> slotRemaining;
 
   const _TokenBudgetRow({
     required this.budget,
@@ -104,6 +107,7 @@ class _TokenBudgetRow extends StatelessWidget {
     required this.totalBudget,
     required this.totalRemaining,
     required this.slotBudget,
+    required this.slotRemaining,
   });
 
   @override
@@ -136,7 +140,7 @@ class _TokenBudgetRow extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 child: Text(
-                  '${context.tr(disc.name)}  $r/$b Tokens  ${slotBudget[disc.index]} Slots',
+                  '${context.tr(disc.name)}  $r/$b ${context.tr("tokens")}  ${slotRemaining[disc.index]}/${slotBudget[disc.index]} ${context.tr("slots")}',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontFamily: AppTokens.fontFamily,
@@ -195,7 +199,7 @@ class _BadgeChip extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              badge.name,
+              context.tr(badge.name),
               style: AppTokens.caption.copyWith(
                 color: isUnlocked ? AppTokens.textPrimary : AppTokens.keyOff,
                 fontSize: 11,
@@ -242,7 +246,7 @@ class _BadgeChip extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Text(badge.name, style: AppTokens.cardTitleStyle),
+                      child: Text(context.tr(badge.name), style: AppTokens.cardTitleStyle),
                     ),
                   ],
                 ),
@@ -257,7 +261,9 @@ class _BadgeChip extends StatelessWidget {
                   );
                   final tierColour = Color(int.parse(tierColours[tier.key]!.value.toRadixString(16).padLeft(8, '0'), radix: 16));
                   final tokenCost = loader.getBadgeTokenCost(badge.badgeId, tier, state.heightInches);
-                  final canAfford = tokenCost <= remaining[badge.discipline.index];
+                  final oldCost = currentEquipped != null ? loader.getBadgeTokenCost(badge.badgeId, currentEquipped, state.heightInches) : 0;
+                  final delta = tokenCost - oldCost;
+                  final canAfford = delta <= remaining[badge.discipline.index];
                   final meetsReqs = _meetsRequirements(reqs, state);
                   final meetsHeight = status.heightEligible;
                   final isCurrentTier = currentEquipped == tier;
@@ -292,7 +298,8 @@ class _BadgeChip extends StatelessWidget {
                             ),
                             const Spacer(),
                             if (tokenCost > 0)
-                              Text('${tokenCost} tokens', style: AppTokens.caption.copyWith(color: canAfford ? AppTokens.primary : Colors.red)),
+                              Text('${tokenCost} ${context.tr("tokens")}',
+                                  style: AppTokens.caption.copyWith(color: canAfford ? AppTokens.primary : Colors.red)),
                           ],
                         ),
                         const SizedBox(height: 4),
@@ -318,7 +325,7 @@ class _BadgeChip extends StatelessWidget {
                               ),
                             ),
                             child: Text(
-                              isCurrentTier ? 'Unequip' : 'Equip',
+                              isCurrentTier ? context.tr('unequip') : context.tr('equip'),
                               style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
                             ),
                           ),
@@ -332,14 +339,14 @@ class _BadgeChip extends StatelessWidget {
                                 Icon(Icons.close, size: 12, color: Colors.red),
                                 const SizedBox(width: 4),
                                 Text(
-                                  'Height not eligible',
+                                  context.tr('height_not_eligible'),
                                   style: AppTokens.caption.copyWith(fontSize: 11, color: Colors.red),
                                 ),
                               ],
                             ),
                           ),
                         ...reqs.expand((req) => req.requirements.map((r) {
-                          final attrName = r.name;
+                          final attrName = context.tr(r.name);
                           final currentVal = state.ratings[r.attributeIndex];
                           final meets = currentVal >= r.minimum;
                           return Padding(
@@ -410,7 +417,7 @@ class _BadgeChip extends StatelessWidget {
               TextSpan(
                 children: [
                   TextSpan(
-                    text: 'Height: ',
+                    text: '${context.tr("height")}: ',
                     style: AppTokens.caption.copyWith(fontSize: 11),
                   ),
                   TextSpan(
@@ -425,7 +432,7 @@ class _BadgeChip extends StatelessWidget {
             ),
           ),
           Text(
-            '(Now: ${formatHeight(currentHeight)})',
+            '(${context.tr("current")}: ${formatHeight(currentHeight)})',
             style: AppTokens.caption.copyWith(
               fontSize: 10,
               color: meetsHeight ? Colors.green : Colors.red,

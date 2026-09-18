@@ -18,7 +18,7 @@ class OverallDisplay extends StatefulWidget {
 }
 
 class _OverallDisplayState extends State<OverallDisplay> {
-  bool _expanded = true;
+  bool _expanded = false;
 
   void _toggleExpanded() {
     FocusScope.of(context).unfocus();
@@ -54,7 +54,7 @@ class _OverallDisplayState extends State<OverallDisplay> {
     return AnimatedContainer(
       duration: AppTokens.animShort,
       curve: AppTokens.curveOut,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: AppTokens.surfaceAlt,
         border: Border.all(color: AppTokens.primary.withValues(alpha: 0.4), width: 1),
@@ -74,7 +74,7 @@ class _OverallDisplayState extends State<OverallDisplay> {
                   style: TextStyle(
                     fontFamily: AppTokens.fontFamily,
                     fontSize: 10,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w800,
                     color: AppTokens.primary,
                     letterSpacing: 0.2,
                   ),

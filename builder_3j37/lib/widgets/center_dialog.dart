@@ -26,6 +26,7 @@ class CenterDialog extends StatelessWidget {
               onTap: () {}, // 防止点击内容时关闭
               child: Container(
                 constraints: BoxConstraints(
+                  minWidth: 280,
                   maxWidth: MediaQuery.of(context).size.width * 0.85,
                   maxHeight: MediaQuery.of(context).size.height * 0.7,
                   minHeight: 50,

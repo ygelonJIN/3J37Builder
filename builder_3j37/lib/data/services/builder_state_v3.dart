@@ -547,6 +547,28 @@ class BuilderStateV3 extends ChangeNotifier {
     return List.generate(6, (i) => (budget[i] - spent[i]).clamp(0, 999));
   }
 
+  /// Number of badge slots used per discipline (each equipped badge = 1 slot)
+  List<int> getSlotsSpent() {
+    final spent = List.filled(6, 0);
+    _equippedBadges.forEach((badgeId, tier) {
+      if (tier != null) {
+        final badge = _loader.badgeDefinitions.firstWhere(
+          (b) => b.badgeId == badgeId,
+          orElse: () => BadgeDef(badgeId: badgeId, name: '', discipline: Discipline.finishing, group: 0, minHeight: 0, maxHeight: 99, allowed: false),
+        );
+        spent[badge.discipline.index] += 1;
+      }
+    });
+    return spent;
+  }
+
+  /// Remaining slots per discipline (budget - spent)
+  List<int> getSlotsRemaining() {
+    final budget = getSlotBudget();
+    final spent = getSlotsSpent();
+    return List.generate(6, (i) => (budget[i] - spent[i]).clamp(0, 999));
+  }
+
   List<BadgeStatus> getBadgeStatuses() {
     return _loader.badgeDefinitions.map((badge) {
       final highestTier = _loader.getHighestQualifiedTier(badge.badgeId, _finalRatings);
@@ -567,12 +589,16 @@ class BuilderStateV3 extends ChangeNotifier {
       return true;
     }
     
-    final cost = _loader.getBadgeTokenCost(badgeId, tier, _heightInches);
+    final newCost = _loader.getBadgeTokenCost(badgeId, tier, _heightInches);
     final badge = _loader.badgeDefinitions.firstWhere(
       (b) => b.badgeId == badgeId, 
       orElse: () => BadgeDef(badgeId: badgeId, name: '', discipline: Discipline.finishing, group: 0, minHeight: 0, maxHeight: 99, allowed: false),
     );
-    if (getTokensRemaining()[badge.discipline.index] < cost) return false;
+    // When upgrading/downgrading, refund the old tier's cumulative cost first
+    final currentTier = _equippedBadges[badgeId];
+    final oldCost = currentTier != null ? _loader.getBadgeTokenCost(badgeId, currentTier, _heightInches) : 0;
+    final delta = newCost - oldCost;
+    if (delta > 0 && getTokensRemaining()[badge.discipline.index] < delta) return false;
     _equippedBadges[badgeId] = tier; 
     notifyListeners(); 
     return true;

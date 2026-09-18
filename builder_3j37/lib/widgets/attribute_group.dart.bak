@@ -321,7 +321,7 @@ class _AttributeControlState extends State<_AttributeControl> {
                     final baseVal = widget.value - appliedGain;
                     if (v < widget.value && appliedGain > 0 &&
                         (widget.value >= widget.cap || baseVal <= 25)) {
-                      _showError('Remove Cap Breaker first');
+                      _showError(context.tr('remove_cap_breaker_first'));
                       return;
                     }
                     final baseValue = (v - appliedGain).clamp(25, widget.cap);
@@ -361,74 +361,28 @@ class _AttributeControlState extends State<_AttributeControl> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          SizedBox(
-            width: 40,
-            height: 28,
-            child: TextField(
-              controller: _xController,
-              focusNode: _xFocus,
-              textInputAction: TextInputAction.done,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              textAlign: TextAlign.center,
-              textAlignVertical: TextAlignVertical.center,
-              cursorWidth: 0,
-              style: AppTokens.body.copyWith(color: xColor, fontSize: 12, fontWeight: FontWeight.w800),
-              decoration: InputDecoration(
-                contentPadding: EdgeInsets.symmetric(horizontal: 0, vertical: 2),
-                isDense: true,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppTokens.radius),
-                  borderSide: BorderSide(color: widget.colour.withValues(alpha: 0.3)),
+          GestureDetector(
+            onTap: () => _showXInputDialog(appliedGain),
+            child: Container(
+              width: 40,
+              height: 28,
+              decoration: BoxDecoration(
+                color: AppTokens.surface,
+                border: Border.all(
+                  color: widget.colour.withValues(alpha: 0.5),
+                  width: 1,
                 ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppTokens.radius),
-                  borderSide: BorderSide(color: widget.colour.withValues(alpha: 0.2)),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppTokens.radius),
-                  borderSide: BorderSide(color: widget.colour, width: 1.5),
+                borderRadius: BorderRadius.circular(AppTokens.radius),
+              ),
+              child: Center(
+                child: Text(
+                  '${widget.value}',
+                  style: AppTokens.body.copyWith(color: xColor, fontSize: 12, fontWeight: FontWeight.w800),
                 ),
               ),
-              onTap: () {
-                setState(() { _xEditing = true; });
-                if (_hasError) {
-                  _errorTimer?.cancel();
-                  setState(() {
-                    _hasError = false;
-                    _errorMessage = '';
-                  });
-                }
-                _xController.selection = TextSelection(baseOffset: 0, extentOffset: _xController.text.length);
-              },
-              onSubmitted: (_) {
-                final v = int.tryParse(_xController.text);
-                if (v != null) {
-                  if (widget.isLocked) {
-                    _showError('${context.tr(widget.attribute.name)}已锁定');
-                    _xController.text = '${widget.value}';
-                  } else if (v > widget.cap) {
-                    _showError('Max ${widget.cap}');
-                  } else if (v < 25) {
-                    _showError('Min 25');
-                  } else {
-                    final baseValue = v - appliedGain;
-                    final error = widget.validateChanged?.call(baseValue.clamp(25, widget.cap));
-                    if (error != null) {
-                      _showError(error);
-                    } else {
-                      setState(() {
-                        _hasError = false;
-                        _errorMessage = '';
-                      });
-                      widget.onChanged(baseValue.clamp(25, widget.cap));
-                    }
-                  }
-                }
-                _xEditing = false;
-              },
             ),
           ),
-          const SizedBox(width: 2),
+          const SizedBox(width: 4),
           Text('/', style: AppTokens.body.copyWith(color: yColor, fontSize: 12)),
           Text('${widget.cap}', style: AppTokens.body.copyWith(color: yColor, fontSize: 12)),
         ],
@@ -436,7 +390,82 @@ class _AttributeControlState extends State<_AttributeControl> {
     );
   }
 
+  void _showXInputDialog(int appliedGain) {
+    final controller = TextEditingController(text: '${widget.value}');
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppTokens.surface,
+        title: Text(widget.attribute.displayName, style: AppTokens.cardTitleStyle),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          autofocus: true,
+          textAlign: TextAlign.center,
+          style: AppTokens.body.copyWith(color: AppTokens.textPrimary, fontSize: 18, fontWeight: FontWeight.w800),
+          decoration: InputDecoration(
+            hintText: '25-${widget.cap}',
+            hintStyle: AppTokens.caption,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(AppTokens.radius),
+              borderSide: BorderSide(color: widget.colour.withValues(alpha: 0.5)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(AppTokens.radius),
+              borderSide: BorderSide(color: widget.colour.withValues(alpha: 0.3)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(AppTokens.radius),
+              borderSide: BorderSide(color: widget.colour, width: 1.5),
+            ),
+          ),
+          onSubmitted: (_) {
+            _handleXInput(controller.text, appliedGain);
+            Navigator.of(context).pop();
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('取消', style: AppTokens.caption),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              _handleXInput(controller.text, appliedGain);
+              Navigator.of(context).pop();
+            },
+            child: Text('确定', style: AppTokens.buttonLabel),
+          ),
+        ],
+      ),
+    );
+  }
 
+  void _handleXInput(String text, int appliedGain) {
+    final v = int.tryParse(text);
+    if (v != null) {
+      if (widget.isLocked) {
+        _showError('${widget.attribute.displayName}已锁定');
+      } else if (v > widget.cap) {
+        _showError('Max ${widget.cap}');
+      } else if (v < 25) {
+        _showError('Min 25');
+      } else {
+        final baseValue = v - appliedGain;
+        final error = widget.validateChanged?.call(baseValue.clamp(25, widget.cap));
+        if (error != null) {
+          _showError(error);
+        } else {
+          setState(() {
+            _hasError = false;
+            _errorMessage = '';
+          });
+          widget.onChanged(baseValue.clamp(25, widget.cap));
+        }
+      }
+    }
+  }
 
   // ── Lock icon ──────────────────────────────────────────
   Widget _buildLockIcon() {
@@ -640,7 +669,7 @@ class _AttributeControlState extends State<_AttributeControl> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(children: [
-                          Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: tierColour.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(2)), child: Text(tier.key.toUpperCase(), style: AppTokens.caption.copyWith(color: tierColour, fontWeight: FontWeight.w800))),
+                          Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: tierColour.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(2)), child: Text(context.tr(tier.key), style: AppTokens.caption.copyWith(color: tierColour, fontWeight: FontWeight.w800))),
                           const Spacer(),
                           if (tokenCost > 0) Text('$tokenCost tokens', style: AppTokens.caption.copyWith(color: canAfford ? AppTokens.primary : Colors.red)),
                         ]),
