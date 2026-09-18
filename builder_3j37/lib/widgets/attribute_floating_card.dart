@@ -4,6 +4,7 @@ import '../data/models/enums.dart';
 import '../data/services/builder_state_v3.dart';
 import '../data/services/dataset_loader.dart';
 import '../theme/app_tokens.dart';
+import '../extensions/context_extensions.dart';
 import 'package:provider/provider.dart';
 
 class AttributeFloatingCard extends StatefulWidget {
@@ -70,7 +71,7 @@ class _AttributeFloatingCardState extends State<AttributeFloatingCard> {
                   style: TextStyle(
                     fontFamily: AppTokens.fontFamily,
                     fontSize: 9,
-                    fontWeight: FontWeight.w300,
+                    fontWeight: FontWeight.w500,
                     color: AppTokens.keyOff,
                   ),
                 ),
@@ -80,7 +81,7 @@ class _AttributeFloatingCardState extends State<AttributeFloatingCard> {
                   style: TextStyle(
                     fontFamily: AppTokens.fontFamily,
                     fontSize: 9,
-                    fontWeight: FontWeight.w300,
+                    fontWeight: FontWeight.w500,
                     color: AppTokens.textSecondary,
                   ),
                 ),
@@ -157,11 +158,11 @@ class _AttributeFloatingCardState extends State<AttributeFloatingCard> {
         children: [
           Expanded(
             child: Text(
-              attr.displayName,
+              context.tr(attr.name),
               style: TextStyle(
                 fontFamily: AppTokens.fontFamily,
                 fontSize: 9,
-                fontWeight: FontWeight.w300,
+                fontWeight: FontWeight.w500,
                 color: nameColor,
               ),
               overflow: TextOverflow.ellipsis,
@@ -172,7 +173,7 @@ class _AttributeFloatingCardState extends State<AttributeFloatingCard> {
             style: TextStyle(
               fontFamily: AppTokens.fontFamily,
               fontSize: 9,
-              fontWeight: FontWeight.w500,
+              fontWeight: FontWeight.w700,
               color: xColor,
             ),
           ),
@@ -181,7 +182,7 @@ class _AttributeFloatingCardState extends State<AttributeFloatingCard> {
             style: TextStyle(
               fontFamily: AppTokens.fontFamily,
               fontSize: 9,
-              fontWeight: FontWeight.w300,
+              fontWeight: FontWeight.w500,
               color: yColor,
             ),
           ),

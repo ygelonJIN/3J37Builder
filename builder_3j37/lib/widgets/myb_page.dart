@@ -6,6 +6,7 @@ import '../data/services/builder_state_v3.dart';
 import '../theme/app_tokens.dart';
 import 'center_dialog.dart';
 import 'share_build_card.dart';
+import '../extensions/context_extensions.dart';
 
 class MyBPage extends StatefulWidget {
   final VoidCallback onClose;
@@ -74,9 +75,9 @@ class _MyBPageState extends State<MyBPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Delete Build', style: AppTokens.cardTitleStyle),
+            Text(context.tr('delete_build'), style: AppTokens.cardTitleStyle),
             const SizedBox(height: 12),
-            Text('Delete "${entry.name}"?', style: AppTokens.body, textAlign: TextAlign.center),
+            Text('${context.tr("delete_build")} ${entry.name}?', style: AppTokens.body, textAlign: TextAlign.center),
             const SizedBox(height: 20),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -107,7 +108,7 @@ class _MyBPageState extends State<MyBPage> {
         ),
         child: Text(label, style: TextStyle(
           fontFamily: AppTokens.fontFamily, fontSize: 13,
-          fontWeight: FontWeight.w600, color: color,
+          fontWeight: FontWeight.w800, color: color,
         )),
       ),
     );
@@ -185,7 +186,7 @@ class _MyBPageState extends State<MyBPage> {
               style: TextStyle(
                 fontFamily: AppTokens.fontFamily,
                 fontSize: 16,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w800,
                 color: AppTokens.textPrimary,
               ),
             ),
@@ -196,7 +197,7 @@ class _MyBPageState extends State<MyBPage> {
                 style: TextStyle(
                   fontFamily: AppTokens.fontFamily,
                   fontSize: 12,
-                  fontWeight: FontWeight.w400,
+                  fontWeight: FontWeight.w800,
                   color: AppTokens.textSecondary,
                 ),
                 textAlign: TextAlign.center,
@@ -213,9 +214,9 @@ class _MyBPageState extends State<MyBPage> {
                   borderRadius: BorderRadius.circular(AppTokens.radius),
                 ),
                 child: Center(
-                  child: Text('OK', style: TextStyle(
+                  child: Text(context.tr('ok'), style: TextStyle(
                     fontFamily: AppTokens.fontFamily, fontSize: 14,
-                    fontWeight: FontWeight.w600, color: AppTokens.onPrimary,
+                    fontWeight: FontWeight.w800, color: AppTokens.onPrimary,
                   )),
                 ),
               ),
@@ -318,7 +319,7 @@ class _MyBPageState extends State<MyBPage> {
                   child: Row(children: [
                     _buildPillButton(icon: Icons.arrow_back_rounded, onTap: widget.onClose),
                     const SizedBox(width: 12),
-                    Text('My Builds', style: AppTokens.pageTitle),
+                    Text(context.tr('my_builds'), style: AppTokens.pageTitle),
                   ]),
                 ),
               ),
@@ -336,14 +337,14 @@ class _MyBPageState extends State<MyBPage> {
         children: [
           Icon(Icons.folder_open_rounded, size: 48, color: AppTokens.textSecondary.withValues(alpha: 0.3)),
           const SizedBox(height: 16),
-          Text('No Saved Builds', style: TextStyle(
+          Text(context.tr('no_saved_builds'), style: TextStyle(
             fontFamily: AppTokens.fontFamily, fontSize: 16,
-            fontWeight: FontWeight.w600, color: AppTokens.textSecondary,
+            fontWeight: FontWeight.w800, color: AppTokens.textSecondary,
           )),
           const SizedBox(height: 8),
-          Text('Save a build to see it here', style: TextStyle(
+          Text(context.tr('save_a_build_to_see_it_here'), style: TextStyle(
             fontFamily: AppTokens.fontFamily, fontSize: 13,
-            fontWeight: FontWeight.w400, color: AppTokens.textSecondary.withValues(alpha: 0.6),
+            fontWeight: FontWeight.w800, color: AppTokens.textSecondary.withValues(alpha: 0.6),
           )),
         ],
       ),
@@ -405,7 +406,7 @@ class _BuildRow extends StatelessWidget {
           borderRadius: BorderRadius.circular(AppTokens.radius),
           border: Border.all(color: AppTokens.primary.withValues(alpha: 0.2), width: 1),
         ),
-        child: isEditing ? _buildNameEditor() : _buildContent(),
+        child: isEditing ? _buildNameEditor(context) : _buildContent(),
       ),
     );
   }
@@ -417,12 +418,12 @@ class _BuildRow extends StatelessWidget {
         // Name + subtitle
         Text(entry.name, style: TextStyle(
           fontFamily: AppTokens.fontFamily, fontSize: 15,
-          fontWeight: FontWeight.w600, color: AppTokens.textPrimary,
+          fontWeight: FontWeight.w800, color: AppTokens.textPrimary,
         ), overflow: TextOverflow.ellipsis),
         const SizedBox(height: 2),
         Text(entry.subtitleLine, style: TextStyle(
           fontFamily: AppTokens.fontFamily, fontSize: 10,
-          fontWeight: FontWeight.w300, color: AppTokens.primary, letterSpacing: 0.2,
+          fontWeight: FontWeight.w500, color: AppTokens.primary, letterSpacing: 0.2,
         ), overflow: TextOverflow.ellipsis),
 
         const SizedBox(height: 8),
@@ -469,13 +470,13 @@ class _BuildRow extends StatelessWidget {
         ),
         child: Text(label, style: TextStyle(
           fontFamily: AppTokens.fontFamily, fontSize: 11,
-          fontWeight: FontWeight.w500, color: color,
+          fontWeight: FontWeight.w700, color: color,
         )),
       ),
     );
   }
 
-  Widget _buildNameEditor() {
+  Widget _buildNameEditor(BuildContext context) {
     return Row(children: [
       Expanded(
         child: TextField(
@@ -483,7 +484,7 @@ class _BuildRow extends StatelessWidget {
           autofocus: true,
           style: TextStyle(
             fontFamily: AppTokens.fontFamily, fontSize: 15,
-            fontWeight: FontWeight.w600, color: AppTokens.textPrimary,
+            fontWeight: FontWeight.w800, color: AppTokens.textPrimary,
           ),
           decoration: InputDecoration(
             isDense: true,
@@ -516,9 +517,9 @@ class _BuildRow extends StatelessWidget {
             color: AppTokens.primary,
             borderRadius: BorderRadius.circular(AppTokens.radius),
           ),
-          child: Text('Done', style: TextStyle(
+          child: Text(context.tr('done'), style: TextStyle(
             fontFamily: AppTokens.fontFamily, fontSize: 13,
-            fontWeight: FontWeight.w600, color: AppTokens.onPrimary,
+            fontWeight: FontWeight.w800, color: AppTokens.onPrimary,
           )),
         ),
       ),

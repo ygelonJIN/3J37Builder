@@ -8,6 +8,7 @@ import '../data/services/dataset_loader.dart';
 import '../data/services/cap_breaker_engine.dart';
 import '../data/services/builder_state_v3.dart';
 import '../theme/app_tokens.dart';
+import '../extensions/context_extensions.dart';
 import 'package:provider/provider.dart';
 import 'plus_minus_control.dart';
 import 'center_dialog.dart';
@@ -41,6 +42,7 @@ class AttributeGroups extends StatelessWidget {
           final colour = AppTokens.disciplineColours[disc.name] ?? AppTokens.textSecondary;
           final tokenRemaining = remaining[disc.index];
           final tokenBudget = budget[disc.index];
+          final slotBudget = state.getSlotBudget();
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -49,9 +51,9 @@ class AttributeGroups extends StatelessWidget {
                 padding: const EdgeInsets.only(left: 4),
                 child: Row(
                   children: [
-                    Text(disc.displayName, style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 15, fontWeight: FontWeight.w600, color: colour)),
+                    Text(context.tr(disc.name), style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 15, fontWeight: FontWeight.w800, color: colour)),
                     const SizedBox(width: 6),
-                    Text('$tokenRemaining/$tokenBudget', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 14, fontWeight: FontWeight.w600, color: colour)),
+                    Text('$tokenRemaining/$tokenBudget Tokens ${slotBudget[disc.index]} Slots', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 14, fontWeight: FontWeight.w800, color: colour)),
                   ],
                 ),
               ),
@@ -70,6 +72,7 @@ class AttributeGroups extends StatelessWidget {
                   canAdjust: state.canAdjustAttribute(attr.index),
                   isGoalActive: state.isGoalActive(attr.index),
                   goalValue: state.getGoalRating(attr.index),
+                  onRemoveCapBreaker: () => state.removeCapBreaker(attr.index),
                 );
               }),
             ],
@@ -93,6 +96,7 @@ class _AttributeControl extends StatefulWidget {
   final bool canAdjust;
   final bool isGoalActive;
   final int? goalValue;
+  final VoidCallback? onRemoveCapBreaker;
 
   const _AttributeControl({
     required this.attribute,
@@ -107,6 +111,7 @@ class _AttributeControl extends StatefulWidget {
     required this.canAdjust,
     this.isGoalActive = false,
     this.goalValue,
+    this.onRemoveCapBreaker,
   });
 
   @override
@@ -153,13 +158,13 @@ class _AttributeControlState extends State<_AttributeControl> {
       });
       final state = context.read<BuilderStateV3>();
       final appliedGain = state.getCapBreakerGainForAttr(widget.attribute.index);
-      final displayValue = widget.value + appliedGain;
+      final displayValue = widget.value;
 
       final v = int.tryParse(_xController.text);
-      final clampedDisplay = (widget.value + appliedGain).clamp(25, widget.cap);
+      final clampedDisplay = (widget.value).clamp(25, widget.cap);
       if (v != null) {
         if (widget.isLocked) {
-          _showError('${widget.attribute.displayName}已锁定');
+          _showError('${context.tr(widget.attribute.name)}已锁定');
           _xController.text = '$clampedDisplay';
         } else if (v > widget.cap) {
           _showError('Max ${widget.cap}');
@@ -177,7 +182,7 @@ class _AttributeControlState extends State<_AttributeControl> {
           }
         }
       } else {
-        _xController.text = '${(widget.value + appliedGain).clamp(25, widget.cap)}';
+        _xController.text = '${widget.value.clamp(25, widget.cap)}';
       }
       _xEditing = false;
     }
@@ -193,7 +198,7 @@ class _AttributeControlState extends State<_AttributeControl> {
       if (mounted) {
         final state = context.read<BuilderStateV3>();
         final appliedGain = state.getCapBreakerGainForAttr(widget.attribute.index);
-        final clampedDisplay = (widget.value + appliedGain).clamp(25, widget.cap);
+        final clampedDisplay = (widget.value).clamp(25, widget.cap);
         setState(() {
           _hasError = false;
           _errorMessage = '';
@@ -217,24 +222,24 @@ class _AttributeControlState extends State<_AttributeControl> {
   Widget build(BuildContext context) {
     final state = context.read<BuilderStateV3>();
     final appliedGain = state.getCapBreakerGainForAttr(widget.attribute.index);
-    final displayValue = widget.value + appliedGain;
+    final displayValue = widget.value;
     
     // Update controller text if not editing (clamped to physical cap)
     if (!_xEditing) {
-      _xController.text = '${(widget.value + appliedGain).clamp(25, widget.cap)}';
+      _xController.text = '${widget.value.clamp(25, widget.cap)}';
     }
     
     final atCap = widget.value >= widget.cap;
     final bool isMaxed = widget.isOvrMax || atCap;
     // Make X value brighter when cap breakers are applied
     final Color xColor;
-    if (isMaxed || widget.isLocked) {
+    if (widget.isLocked) {
       xColor = AppTokens.keyOff;
     } else if (appliedGain > 0) {
       // Brighter color for cap-broken values
       xColor = AppTokens.primary;
     } else {
-      xColor = AppTokens.primary;
+      xColor = widget.colour;
     }
     const Color yColor = AppTokens.keyOff;
 
@@ -259,7 +264,7 @@ class _AttributeControlState extends State<_AttributeControl> {
                   padding: const EdgeInsets.symmetric(vertical: 2),
                   child: Row(
                     children: [
-                      Expanded(child: Text(widget.attribute.displayName, style: AppTokens.caption.copyWith(color: isMaxed ? AppTokens.keyOff : AppTokens.textPrimary, fontSize: 11))),
+                      Expanded(child: Text(context.tr(widget.attribute.name), style: AppTokens.caption.copyWith(color: (isMaxed && appliedGain == 0) ? AppTokens.keyOff : AppTokens.textPrimary, fontSize: 11))),
                       Icon(_expanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down, size: 16, color: AppTokens.textSecondary),
                     ],
                   ),
@@ -271,18 +276,60 @@ class _AttributeControlState extends State<_AttributeControl> {
                   padding: const EdgeInsets.only(right: 16),
                   child: Text(
                     _errorMessage,
-                    style: AppTokens.caption.copyWith(color: Colors.red, fontSize: 11, fontWeight: FontWeight.w600),
+                    style: AppTokens.caption.copyWith(color: Colors.red, fontSize: 10, fontWeight: FontWeight.w800),
                   ),
                 )
+              else if (widget.isGoalActive) ...[
+                // GOAL: show like error message style - gold color, no plus/minus, no X/Y
+                Padding(
+                  padding: const EdgeInsets.only(right: 16),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'GOAL',
+                        style: TextStyle(
+                          fontFamily: AppTokens.fontFamily,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                          color: AppTokens.primary,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '${widget.goalValue ?? widget.value}${appliedGain > 0 ? '+$appliedGain' : ''}',
+                        style: TextStyle(
+                          fontFamily: AppTokens.fontFamily,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          color: AppTokens.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ]
               else ...[
                 PlusMinusControl(
                   value: widget.value,
                   min: 25,
                   max: widget.cap,
                   onChanged: widget.canAdjust ? (v) {
-                    final error = widget.validateChanged?.call(v);
+                    // With cap breakers: block decrease and prompt to remove them
+                    // Covers: at cap (value==cap) or at floor (base==25)
+                    final baseVal = widget.value - appliedGain;
+                    if (v < widget.value && appliedGain > 0 &&
+                        (widget.value >= widget.cap || baseVal <= 25)) {
+                      _showError('Remove Cap Breaker first');
+                      return;
+                    }
+                    final baseValue = (v - appliedGain).clamp(25, widget.cap);
+                    final error = widget.validateChanged?.call(baseValue);
                     if (error == null) {
-                      widget.onChanged(v);
+                      widget.onChanged(baseValue);
+                    } else {
+                      _showError(error);
                     }
                   } : null,
                   activeColor: widget.colour,
@@ -292,7 +339,7 @@ class _AttributeControlState extends State<_AttributeControl> {
                 const SizedBox(width: 6),
                 _buildLockIcon(),
               ],
-            ],
+              ],
           ),
         ),
         if (_expanded) ...[
@@ -320,12 +367,12 @@ class _AttributeControlState extends State<_AttributeControl> {
             child: TextField(
               controller: _xController,
               focusNode: _xFocus,
-              keyboardType: TextInputType.number,
+              textInputAction: TextInputAction.done,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               textAlign: TextAlign.center,
               textAlignVertical: TextAlignVertical.center,
               cursorWidth: 0,
-              style: AppTokens.body.copyWith(color: xColor, fontSize: 12, fontWeight: FontWeight.w600),
+              style: AppTokens.body.copyWith(color: xColor, fontSize: 12, fontWeight: FontWeight.w800),
               decoration: InputDecoration(
                 contentPadding: EdgeInsets.symmetric(horizontal: 0, vertical: 2),
                 isDense: true,
@@ -357,8 +404,8 @@ class _AttributeControlState extends State<_AttributeControl> {
                 final v = int.tryParse(_xController.text);
                 if (v != null) {
                   if (widget.isLocked) {
-                    _showError('${widget.attribute.displayName}已锁定');
-                    _xController.text = '${widget.value + appliedGain}';
+                    _showError('${context.tr(widget.attribute.name)}已锁定');
+                    _xController.text = '${widget.value}';
                   } else if (v > widget.cap) {
                     _showError('Max ${widget.cap}');
                   } else if (v < 25) {
@@ -424,7 +471,7 @@ class _AttributeControlState extends State<_AttributeControl> {
     }).toList();
 
     if (badges.isEmpty) {
-      return Padding(padding: const EdgeInsets.only(bottom: 8), child: Text('No related badges', style: AppTokens.caption.copyWith(fontSize: 10)));
+      return Padding(padding: const EdgeInsets.only(bottom: 8), child: Text(context.tr('no_related_badges'), style: AppTokens.caption.copyWith(fontSize: 10)));
     }
 
     return Container(
@@ -457,7 +504,7 @@ class _AttributeControlState extends State<_AttributeControl> {
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(color: status.isUnlocked ? AppTokens.surface : AppTokens.surface.withValues(alpha: 0.5), border: Border.all(color: borderColor, width: borderWidth), borderRadius: BorderRadius.circular(AppTokens.radius)),
               child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Text(badge.displayName, style: AppTokens.caption.copyWith(color: status.isUnlocked ? AppTokens.textPrimary : AppTokens.keyOff, fontSize: 10)),
+                Text(context.tr(badge.name), style: AppTokens.caption.copyWith(color: status.isUnlocked ? AppTokens.textPrimary : AppTokens.keyOff, fontSize: 10)),
                 const SizedBox(width: 4),
                 Container(width: 8, height: 8, color: blockColor),
               ]),
@@ -473,13 +520,13 @@ class _AttributeControlState extends State<_AttributeControl> {
     final rating = widget.value;
     final cap = widget.cap;
     final headroom = cap - rating;
-    if (headroom <= 0) return const SizedBox.shrink();
-
-    final gains = state.getCapBreakerSequence(widget.attribute.index);
-    debugPrint('[CapBreaker] attr=${widget.attribute.index} rating=$rating cap=$cap headroom=$headroom gains=${gains.length} values=${gains}');
     final appliedCount = state.getAppliedCapBreakerCount(widget.attribute.index);
+    // Don't hide when there are applied cap breakers — user needs to see and remove them
+    if (headroom <= 0 && appliedCount == 0) return const SizedBox.shrink();
+
+    final gains = state.getCapBreakerSequence(widget.attribute.index, attrCap: widget.cap);
     final totalAllGains = gains.fold<int>(0, (sum, g) => sum + g);
-    final maxValue = rating + totalAllGains;
+    final maxValue = state.baseRatings[widget.attribute.index] + totalAllGains;
 
     return Container(
       width: double.infinity,
@@ -490,9 +537,9 @@ class _AttributeControlState extends State<_AttributeControl> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(children: [
-            Text('Cap Breakers', style: AppTokens.caption.copyWith(fontSize: 10, color: AppTokens.textSecondary)),
+            Text(context.tr('cap_breakers'), style: AppTokens.caption.copyWith(fontSize: 10, color: AppTokens.textSecondary)),
             const Spacer(),
-            Text('Max $maxValue', style: AppTokens.caption.copyWith(fontSize: 10, color: widget.colour, fontWeight: FontWeight.w600)),
+            Text('${context.tr("hard_cap")} $maxValue', style: AppTokens.caption.copyWith(fontSize: 10, color: AppTokens.primary, fontWeight: FontWeight.w800)),
           ]),
           const SizedBox(height: 6),
           Row(children: List.generate(5, (index) {
@@ -524,7 +571,7 @@ class _AttributeControlState extends State<_AttributeControl> {
                     border: Border.all(color: isApplied ? AppTokens.primary.withValues(alpha: 0.5) : AppTokens.keyOff.withValues(alpha: 0.3), width: isApplied ? 1.5 : 1),
                     borderRadius: BorderRadius.circular(2),
                   ),
-                  child: Center(child: isAvailable && gain != null ? Text('+$gain', style: AppTokens.caption.copyWith(fontSize: 10, color: isApplied ? AppTokens.primary : AppTokens.textSecondary, fontWeight: isApplied ? FontWeight.w700 : FontWeight.w600)) : Icon(Icons.lock, size: 12, color: AppTokens.keyOff)),
+                  child: Center(child: isAvailable && gain != null ? Text('+$gain', style: AppTokens.caption.copyWith(fontSize: 10, color: isApplied ? AppTokens.primary : AppTokens.textSecondary, fontWeight: isApplied ? FontWeight.w900 : FontWeight.w800)) : Icon(Icons.lock, size: 12, color: AppTokens.keyOff)),
                 ),
               ),
             );
@@ -554,7 +601,8 @@ class _AttributeControlState extends State<_AttributeControl> {
       child: StatefulBuilder(
         builder: (context, setDialogState) {
           final currentEquipped = state.equippedBadges[badge.badgeId];
-          return Padding(
+          return SingleChildScrollView(
+            child: Padding(
             padding: const EdgeInsets.all(20),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -563,12 +611,12 @@ class _AttributeControlState extends State<_AttributeControl> {
                 Row(children: [
                   Icon(currentEquipped != null ? Icons.check_circle : Icons.lock_open, size: 18, color: currentEquipped != null ? AppTokens.primary : AppTokens.keyOff),
                   const SizedBox(width: 6),
-                  Expanded(child: Text(badge.displayName, style: AppTokens.cardTitleStyle)),
+                  Expanded(child: Text(context.tr(badge.name), style: AppTokens.cardTitleStyle)),
                 ]),
                 const SizedBox(height: 8),
                 _buildHeightRequirement(context, badge, state),
                 const SizedBox(height: 16),
-                Text('Tap tier to equip/unequip', style: AppTokens.caption),
+                Text(context.tr('tap_tier_to_equip'), style: AppTokens.caption),
                 const SizedBox(height: 8),
                 ...[BadgeTier.bronze, BadgeTier.silver, BadgeTier.gold, BadgeTier.hallOfFame].map((tier) {
                   final reqs = loader.tierRequirements.where((r) => r.badgeId == badge.badgeId && r.tier == tier);
@@ -592,7 +640,7 @@ class _AttributeControlState extends State<_AttributeControl> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(children: [
-                          Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: tierColour.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(2)), child: Text(tier.key.toUpperCase(), style: AppTokens.caption.copyWith(color: tierColour, fontWeight: FontWeight.w600))),
+                          Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: tierColour.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(2)), child: Text(tier.key.toUpperCase(), style: AppTokens.caption.copyWith(color: tierColour, fontWeight: FontWeight.w800))),
                           const Spacer(),
                           if (tokenCost > 0) Text('$tokenCost tokens', style: AppTokens.caption.copyWith(color: canAfford ? AppTokens.primary : Colors.red)),
                         ]),
@@ -620,14 +668,14 @@ class _AttributeControlState extends State<_AttributeControl> {
                             ),
                             child: Text(
                               isCurrentTier ? 'Unequip' : 'Equip',
-                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
                             ),
                           ),
                         ),
                         const SizedBox(height: 8),
-                        if (!meetsHeight) Padding(padding: const EdgeInsets.only(bottom: 4), child: Row(children: [Icon(Icons.close, size: 12, color: Colors.red), const SizedBox(width: 4), Text('Height not eligible', style: AppTokens.caption.copyWith(fontSize: 11, color: Colors.red))])),
+                        if (!meetsHeight) Padding(padding: const EdgeInsets.only(bottom: 4), child: Row(children: [Icon(Icons.close, size: 12, color: Colors.red), const SizedBox(width: 4), Text(context.tr('height_not_eligible'), style: AppTokens.caption.copyWith(fontSize: 11, color: Colors.red))])),
                         ...reqs.expand((req) => req.requirements.map((r) {
-                          final attrName = loader.attributes[r.attributeIndex].displayName;
+                          final attrName = context.tr(loader.attributes[r.attributeIndex].name);
                           final currentVal = state.ratings[r.attributeIndex];
                           final meets = currentVal >= r.minimum;
                           return Padding(
@@ -645,6 +693,7 @@ class _AttributeControlState extends State<_AttributeControl> {
                   );
                 }),
               ],
+            ),
             ),
           );
         },

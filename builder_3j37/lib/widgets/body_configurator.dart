@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../data/models/enums.dart';
 import '../data/services/dataset_loader.dart';
 import '../theme/app_tokens.dart';
+import '../extensions/context_extensions.dart';
 import 'plus_minus_control.dart';
 
 class BodyConfigurator extends StatelessWidget {
@@ -55,7 +56,7 @@ class BodyConfigurator extends StatelessWidget {
       children: [
         // Height
         _BodyControl(
-          label: 'Height',
+          label: context.tr('height'),
           value: heightInches,
           min: minH,
           max: maxH,
@@ -65,7 +66,7 @@ class BodyConfigurator extends StatelessWidget {
         const SizedBox(height: 2),
         // Weight
         _BodyControl(
-          label: 'Weight',
+          label: context.tr('weight'),
           value: weightLb,
           min: minW,
           max: maxW,
@@ -75,7 +76,7 @@ class BodyConfigurator extends StatelessWidget {
         const SizedBox(height: 2),
         // Wingspan
         _BodyControl(
-          label: 'Wingspan',
+          label: context.tr('wingspan'),
           value: wingspanInches,
           min: minWs,
           max: maxWs,
@@ -119,7 +120,7 @@ class _BodyControl extends StatelessWidget {
                   style: AppTokens.caption.copyWith(
                     color: AppTokens.textPrimary,
                     fontSize: 11,
-                    fontWeight: FontWeight.w400,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
                 TextSpan(
@@ -127,7 +128,7 @@ class _BodyControl extends StatelessWidget {
                   style: AppTokens.caption.copyWith(
                     color: AppTokens.primary,
                     fontSize: 11,
-                    fontWeight: FontWeight.w400,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ],

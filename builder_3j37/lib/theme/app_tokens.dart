@@ -57,7 +57,7 @@ class AppTokens {
   static const TextStyle brandMark = TextStyle(
     fontFamily: fontFamily,
     fontSize: 20,
-    fontWeight: FontWeight.w600,
+    fontWeight: FontWeight.w800,
     letterSpacing: 4,
     color: primary,
   );
@@ -65,35 +65,35 @@ class AppTokens {
   static const TextStyle pageTitle = TextStyle(
     fontFamily: fontFamily,
     fontSize: 20,
-    fontWeight: FontWeight.w600,
+    fontWeight: FontWeight.w800,
     color: textPrimary,
   );
 
   static const TextStyle cardTitleStyle = TextStyle(
     fontFamily: fontFamily,
     fontSize: 16,
-    fontWeight: FontWeight.w600,
+    fontWeight: FontWeight.w800,
     color: cardTitle,
   );
 
   static const TextStyle body = TextStyle(
     fontFamily: fontFamily,
     fontSize: 14,
-    fontWeight: FontWeight.w400,
+    fontWeight: FontWeight.w800,
     color: textPrimary,
   );
 
   static const TextStyle caption = TextStyle(
     fontFamily: fontFamily,
     fontSize: 12,
-    fontWeight: FontWeight.w400,
+    fontWeight: FontWeight.w800,
     color: textSecondary,
   );
 
   static const TextStyle buttonLabel = TextStyle(
     fontFamily: fontFamily,
     fontSize: 14,
-    fontWeight: FontWeight.w600,
+    fontWeight: FontWeight.w800,
     color: onPrimary,
   );
 

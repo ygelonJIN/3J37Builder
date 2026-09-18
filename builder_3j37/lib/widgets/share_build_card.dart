@@ -107,7 +107,7 @@ class ShareBuildCard extends StatelessWidget {
               const SizedBox(height: 2),
               Text('Builder', style: TextStyle(
                 fontFamily: AppTokens.fontFamily, fontSize: 30,
-                fontWeight: FontWeight.w300, color: AppTokens.textSecondary,
+                fontWeight: FontWeight.w500, color: AppTokens.textSecondary,
                 letterSpacing: 6,
               )),
             ],
@@ -182,13 +182,13 @@ class ShareBuildCard extends StatelessWidget {
         children: [
           Text(label, style: TextStyle(
             fontFamily: AppTokens.fontFamily, fontSize: 13,
-            fontWeight: FontWeight.w400, color: AppTokens.keyOff, letterSpacing: 2,
+            fontWeight: FontWeight.w800, color: AppTokens.keyOff, letterSpacing: 2,
           )),
           const SizedBox(width: 50),
           if (value1 != null)
             Text(value1, style: TextStyle(
               fontFamily: AppTokens.fontFamily, fontSize: 24,
-              fontWeight: FontWeight.w700, color: AppTokens.textPrimary,
+              fontWeight: FontWeight.w900, color: AppTokens.textPrimary,
             ))
           else
             Column(
@@ -197,11 +197,11 @@ class ShareBuildCard extends StatelessWidget {
               children: [
                 Text(bigValue ?? '', style: TextStyle(
                   fontFamily: AppTokens.fontFamily, fontSize: 24,
-                  fontWeight: FontWeight.w700, color: AppTokens.primary,
+                  fontWeight: FontWeight.w900, color: AppTokens.primary,
                 )),
                 Text(smallValue ?? '', style: TextStyle(
                   fontFamily: AppTokens.fontFamily, fontSize: 14,
-                  fontWeight: FontWeight.w500, color: AppTokens.textSecondary,
+                  fontWeight: FontWeight.w700, color: AppTokens.textSecondary,
                 )),
               ],
             ),
@@ -300,7 +300,7 @@ class ShareBuildCard extends StatelessWidget {
         children: [
           Expanded(child: Text(name, style: TextStyle(
             fontFamily: AppTokens.fontFamily, fontSize: 14,
-            fontWeight: FontWeight.w400, color: AppTokens.textSecondary,
+            fontWeight: FontWeight.w800, color: AppTokens.textSecondary,
           ), overflow: TextOverflow.ellipsis)),
           const SizedBox(width: 4),
           Text('${attrState.finalValue}', style: TextStyle(
@@ -310,7 +310,7 @@ class ShareBuildCard extends StatelessWidget {
           )),
           Text('/${attrState.baseCap}', style: TextStyle(
             fontFamily: AppTokens.fontFamily, fontSize: 13,
-            fontWeight: FontWeight.w400, color: AppTokens.keyOff,
+            fontWeight: FontWeight.w800, color: AppTokens.keyOff,
           )),
           if (cbGain > 0) ...[
             const SizedBox(width: 4),
@@ -360,7 +360,7 @@ class ShareBuildCard extends StatelessWidget {
             const SizedBox(width: 7),
             Text(discipline.displayName.toUpperCase(), style: TextStyle(
               fontFamily: AppTokens.fontFamily, fontSize: 16,
-              fontWeight: FontWeight.w700, color: color, letterSpacing: 2,
+              fontWeight: FontWeight.w900, color: color, letterSpacing: 2,
             )),
             Container(
               width: 1, height: 14,
@@ -369,7 +369,7 @@ class ShareBuildCard extends StatelessWidget {
             ),
             Text('Tokens ${tokens[discIdx]}', style: TextStyle(
               fontFamily: AppTokens.fontFamily, fontSize: 14,
-              fontWeight: FontWeight.w500, color: AppTokens.textSecondary,
+              fontWeight: FontWeight.w700, color: AppTokens.textSecondary,
             )),
             Container(
               width: 1, height: 14,
@@ -378,7 +378,7 @@ class ShareBuildCard extends StatelessWidget {
             ),
             Text('Slots ${slots[discIdx]}', style: TextStyle(
               fontFamily: AppTokens.fontFamily, fontSize: 14,
-              fontWeight: FontWeight.w500, color: AppTokens.textSecondary,
+              fontWeight: FontWeight.w700, color: AppTokens.textSecondary,
             )),
           ]),
           const SizedBox(height: 5),
@@ -419,7 +419,7 @@ class ShareBuildCard extends StatelessWidget {
         Text(badge.displayName, style: TextStyle(
           fontFamily: AppTokens.fontFamily,
           fontSize: isEquipped ? 15 : 13,
-          fontWeight: isEquipped ? FontWeight.w600 : FontWeight.w300,
+          fontWeight: isEquipped ? FontWeight.w800 : FontWeight.w500,
           color: isEquipped ? tierColor : AppTokens.keyOff,
         )),
       ]),

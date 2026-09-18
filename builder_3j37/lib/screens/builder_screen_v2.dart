@@ -13,6 +13,7 @@ import '../widgets/goal_card.dart';
 import '../widgets/myb_page.dart';
 import '../widgets/myb_split_button.dart';
 import 'dart:convert';
+import '../extensions/context_extensions.dart';
 
 class BuilderScreenV2 extends StatefulWidget {
   const BuilderScreenV2({super.key});
@@ -108,7 +109,7 @@ class _BuilderScreenV2State extends State<BuilderScreenV2> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Build saved',
+              context.tr('build_saved'),
               style: TextStyle(
                 fontFamily: AppTokens.fontFamily,
                 color: AppTokens.textPrimary,
@@ -293,12 +294,12 @@ class _BuilderScreenV2State extends State<BuilderScreenV2> {
                       ),
                       const SizedBox(width: 8),
                       _buildPillButton(
-                        label: 'Badges',
+                        label: context.tr('badges'),
                         onTap: _openBadges,
                       ),
                       const SizedBox(width: 8),
                       _buildPillButton(
-                        label: 'Moves',
+                        label: context.tr('moves'),
                         onTap: _openMoves,
                       ),
                     ],
@@ -377,7 +378,7 @@ class _BuilderScreenV2State extends State<BuilderScreenV2> {
                         onTap: _closeBadges,
                       ),
                       const SizedBox(width: 8),
-                      Text('Badges', style: AppTokens.pageTitle),
+                      Text(context.tr('badges'), style: AppTokens.pageTitle),
                     ],
                   ),
                 ),
@@ -453,7 +454,7 @@ class _BuilderScreenV2State extends State<BuilderScreenV2> {
                         onTap: _closeMoves,
                       ),
                       const SizedBox(width: 8),
-                      Text('Moves', style: AppTokens.pageTitle),
+                      Text(context.tr('moves'), style: AppTokens.pageTitle),
                     ],
                   ),
                 ),
@@ -517,7 +518,7 @@ class _BuilderScreenV2State extends State<BuilderScreenV2> {
                   label,
                   style: TextStyle(
                     fontSize: 13.5,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w800,
                     color: foreground,
                     fontFamily: AppTokens.fontFamily,
                   ),

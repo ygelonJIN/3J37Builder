@@ -3,6 +3,7 @@ import '../data/services/builder_state_v3.dart';
 import '../data/services/dataset_loader.dart';
 import '../data/models/enums.dart';
 import '../theme/app_tokens.dart';
+import '../extensions/context_extensions.dart';
 import 'package:provider/provider.dart';
 import 'position_selector.dart';
 import 'body_configurator.dart';
@@ -73,7 +74,7 @@ class _OverallDisplayState extends State<OverallDisplay> {
                   style: TextStyle(
                     fontFamily: AppTokens.fontFamily,
                     fontSize: 10,
-                    fontWeight: FontWeight.w300,
+                    fontWeight: FontWeight.w500,
                     color: AppTokens.primary,
                     letterSpacing: 0.2,
                   ),

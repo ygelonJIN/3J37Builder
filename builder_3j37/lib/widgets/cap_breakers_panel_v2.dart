@@ -5,6 +5,7 @@ import '../data/services/dataset_loader.dart';
 import '../data/models/cap_breaker.dart';
 import '../theme/app_tokens.dart';
 import 'package:provider/provider.dart';
+import '../extensions/context_extensions.dart';
 
 /// Interactive Cap Breakers panel that allows applying/removing cap breakers
 class CapBreakersPanelV2 extends StatelessWidget {
@@ -33,13 +34,13 @@ class CapBreakersPanelV2 extends StatelessWidget {
       children: [
         Row(
           children: [
-            Text('Cap Breakers', style: AppTokens.cardTitleStyle.copyWith(fontSize: 14)),
+            Text(context.tr('cap_breakers'), style: AppTokens.cardTitleStyle.copyWith(fontSize: 14)),
             const Spacer(),
             if (state.capBreakerState.hasAnyApplied)
               TextButton.icon(
                 onPressed: () => _showClearAllDialog(context, state),
                 icon: const Icon(Icons.clear_all, size: 16),
-                label: const Text('Clear All', style: TextStyle(fontSize: 12)),
+                label: const Text(context.tr('clear_all'), style: TextStyle(fontSize: 12)),
                 style: TextButton.styleFrom(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 ),
@@ -58,7 +59,7 @@ class CapBreakersPanelV2 extends StatelessWidget {
             style: AppTokens.caption.copyWith(
               fontSize: 11,
               color: AppTokens.primary,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w800,
             ),
           ),
         ],
@@ -104,7 +105,7 @@ class CapBreakersPanelV2 extends StatelessWidget {
                         attrName,
                         style: AppTokens.body.copyWith(
                           fontSize: 12, 
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w800,
                           color: categoryColor,
                         ),
                       ),
@@ -121,7 +122,7 @@ class CapBreakersPanelV2 extends StatelessWidget {
                               style: AppTokens.caption.copyWith(
                                 fontSize: 10,
                                 color: AppTokens.primary,
-                                fontWeight: FontWeight.w600,
+                                fontWeight: FontWeight.w800,
                               ),
                             ),
                           ],
@@ -232,7 +233,7 @@ class CapBreakersPanelV2 extends StatelessWidget {
                                     style: TextStyle(
                                       fontSize: 10,
                                       color: _getTierColor(index),
-                                      fontWeight: FontWeight.w600,
+                                      fontWeight: FontWeight.w800,
                                     ),
                                   )
                                 : Icon(
@@ -292,7 +293,7 @@ class CapBreakersPanelV2 extends StatelessWidget {
     if (!success) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Cannot apply cap breaker: no more headroom or max reached'),
+          content: Text(context.tr('cannot_apply_cap_breaker')),
           duration: Duration(seconds: 2),
         ),
       );
@@ -317,7 +318,7 @@ class CapBreakersPanelV2 extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Clear All Cap Breakers', style: AppTokens.cardTitleStyle),
+            const Text(context.tr('clear_all_cap_breakers'), style: AppTokens.cardTitleStyle),
             const SizedBox(height: 16),
             Text('Remove all ${state.capBreakerState.totalApplied} cap breakers?', style: AppTokens.body),
             const SizedBox(height: 20),
@@ -326,7 +327,7 @@ class CapBreakersPanelV2 extends StatelessWidget {
               children: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel'),
+                  child: const Text(context.tr('cancel')),
                 ),
                 const SizedBox(width: 8),
                 TextButton(
@@ -334,7 +335,7 @@ class CapBreakersPanelV2 extends StatelessWidget {
                     state.clearAllCapBreakers();
                     Navigator.pop(context);
                   },
-                  child: const Text('Clear All', style: TextStyle(color: Colors.red)),
+                  child: const Text(context.tr('clear_all'), style: TextStyle(color: Colors.red)),
                 ),
               ],
             ),

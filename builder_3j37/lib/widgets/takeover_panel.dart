@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../data/services/dataset_loader.dart';
 import '../theme/app_tokens.dart';
+import '../extensions/context_extensions.dart';
 
 class TakeoverPanel extends StatelessWidget {
   const TakeoverPanel({super.key});
@@ -14,7 +15,7 @@ class TakeoverPanel extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Takeover Abilities', style: AppTokens.cardTitleStyle),
+        Text(context.tr('takeover_abilities'), style: AppTokens.cardTitleStyle),
         const SizedBox(height: 4),
         Text(
           '29 abilities (24 published + 5 internal). Attribute codes are unresolved enum values.',
@@ -53,7 +54,7 @@ class TakeoverPanel extends StatelessWidget {
                     ),
                     const Spacer(),
                     if (!hasReqs)
-                      Text('No requirements', style: AppTokens.caption.copyWith(fontSize: 10)),
+                      Text(context.tr('no_requirements'), style: AppTokens.caption.copyWith(fontSize: 10)),
                   ],
                 ),
                 if (hasReqs) ...[

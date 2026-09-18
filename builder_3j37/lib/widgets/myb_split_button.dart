@@ -57,7 +57,7 @@ class MyBSplitButton extends StatelessWidget {
                   'MyB',
                   style: TextStyle(
                     fontSize: 13.5,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w800,
                     color: AppTokens.textPrimary,
                     fontFamily: AppTokens.fontFamily,
                   ),

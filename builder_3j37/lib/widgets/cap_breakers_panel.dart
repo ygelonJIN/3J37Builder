@@ -3,6 +3,7 @@ import '../data/services/builder_state_v3.dart';
 import '../data/services/cap_breaker_engine.dart';
 import '../theme/app_tokens.dart';
 import 'package:provider/provider.dart';
+import '../extensions/context_extensions.dart';
 
 class CapBreakersPanel extends StatelessWidget {
   const CapBreakersPanel({super.key});
@@ -30,7 +31,7 @@ class CapBreakersPanel extends StatelessWidget {
       children: [
         Row(
           children: [
-            Text('Cap Breakers', style: AppTokens.cardTitleStyle.copyWith(fontSize: 14)),
+            Text(context.tr('cap_breakers'), style: AppTokens.cardTitleStyle.copyWith(fontSize: 14)),
             const Spacer(),
             if (state.hasAnyCapBreakers)
               TextButton.icon(
@@ -84,7 +85,7 @@ class CapBreakersPanel extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(attrName, style: AppTokens.body.copyWith(fontSize: 12, fontWeight: FontWeight.w600)),
+                      Text(attrName, style: AppTokens.body.copyWith(fontSize: 12, fontWeight: FontWeight.w800)),
                       if (appliedCount > 0)
                         Text(
                           '+$appliedGain ($appliedCount枚)',
@@ -140,7 +141,7 @@ class CapBreakersPanel extends StatelessWidget {
                                 style: AppTokens.caption.copyWith(
                                   fontSize: 10,
                                   color: isApplied ? AppTokens.primary : AppTokens.textSecondary,
-                                  fontWeight: isApplied ? FontWeight.w700 : FontWeight.w500,
+                                  fontWeight: isApplied ? FontWeight.w900 : FontWeight.w700,
                                 ),
                               )
                             : Icon(Icons.lock, size: 12, color: AppTokens.keyOff),

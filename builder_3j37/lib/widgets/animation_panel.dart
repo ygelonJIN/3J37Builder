@@ -6,6 +6,7 @@ import '../data/services/tuning_parser.dart';
 import '../theme/app_tokens.dart';
 import 'package:provider/provider.dart';
 import 'center_dialog.dart';
+import '../extensions/context_extensions.dart';
 
 class AnimationPanel extends StatefulWidget {
   const AnimationPanel({super.key});
@@ -25,7 +26,7 @@ class _AnimationPanelState extends State<AnimationPanel> {
     final loader = DatasetLoader();
     final tabs = loader.animTabs;
     if (tabs.isEmpty) {
-      return Text('No animations loaded', style: AppTokens.caption);
+      return Text(context.tr('no_animations_loaded'), style: AppTokens.caption);
     }
 
     return Column(
@@ -52,7 +53,7 @@ class _AnimationPanelState extends State<AnimationPanel> {
                   tabs[i].getDisplayName(),
                   style: AppTokens.caption.copyWith(
                     color: isActive ? AppTokens.onPrimary : AppTokens.textSecondary,
-                    fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+                    fontWeight: isActive ? FontWeight.w800 : FontWeight.w800,
                   ),
                 ),
               ),
@@ -69,7 +70,7 @@ class _AnimationPanelState extends State<AnimationPanel> {
           onChanged: (v) => setState(() { _searchQuery = v; }),
           style: AppTokens.body.copyWith(fontSize: 13),
           decoration: InputDecoration(
-            hintText: 'Search moves...',
+            hintText: context.tr('search_moves'),
             hintStyle: AppTokens.caption,
             prefixIcon: Icon(Icons.search, size: 18, color: AppTokens.textSecondary),
             filled: true,
@@ -291,9 +292,9 @@ class _AnimEntryWidget extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             if (anim.attribReqs.isEmpty) ...[
-              Text('No requirements', style: AppTokens.caption),
+              Text(context.tr('no_requirements'), style: AppTokens.caption),
             ] else ...[
-              Text('Attribute Requirements', style: AppTokens.body),
+              Text(context.tr('attribute_requirements'), style: AppTokens.body),
               const SizedBox(height: 8),
               ...anim.attribReqs.map((req) {
                 final idx = TuningParser.nativeNames.indexOf(req.attrib);
@@ -323,7 +324,7 @@ class _AnimEntryWidget extends StatelessWidget {
                         '$current / ${req.value}',
                         style: AppTokens.caption.copyWith(
                           color: met ? AppTokens.primary : AppTokens.keyOff,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w800,
                           fontSize: 12,
                         ),
                       ),

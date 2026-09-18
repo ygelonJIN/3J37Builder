@@ -13,6 +13,8 @@ import '../widgets/goal_card.dart';
 import '../data/services/build_storage_service.dart';
 import '../widgets/myb_page.dart';
 import '../widgets/myb_split_button.dart';
+import '../widgets/more_expandable_button.dart';
+import '../extensions/context_extensions.dart';
 
 class BuilderScreen extends StatefulWidget {
   const BuilderScreen({super.key});
@@ -32,6 +34,7 @@ class _BuilderScreenState extends State<BuilderScreen> {
   bool _minimapExpanded = false;
   bool _goalExpanded = false;
   final ScrollController _scrollController = ScrollController();
+  final GlobalKey<MoreExpandableButtonState> _moreButtonKey = GlobalKey<MoreExpandableButtonState>();
 
   void _dismissKeyboard() {
     FocusScope.of(context).unfocus();
@@ -40,8 +43,13 @@ class _BuilderScreenState extends State<BuilderScreen> {
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onScroll);
     _loadData();
     BuildStorageService.instance.loadBuilds();
+  }
+
+  void _onScroll() {
+    _moreButtonKey.currentState?.collapse();
   }
 
   @override
@@ -81,6 +89,11 @@ class _BuilderScreenState extends State<BuilderScreen> {
 
   void _openMyB() {
     setState(() => _showMyB = true);
+  }
+
+  void _saveBuild() {
+    if (_currentState == null) return;
+    BuildStorageService.instance.saveBuild(_currentState!);
   }
 
   void _saveAndOpenMyB() {
@@ -194,7 +207,10 @@ class _BuilderScreenState extends State<BuilderScreen> {
             Positioned.fill(child: Container(color: AppTokens.background)),
             Positioned.fill(
               child: Listener(
-                onPointerDown: (_) => _dismissKeyboard(),
+                onPointerDown: (_) {
+                  _dismissKeyboard();
+                  _moreButtonKey.currentState?.collapse();
+                },
                 child: NotificationListener<UserScrollNotification>(
                   onNotification: (_) {
                     _dismissKeyboard();
@@ -300,19 +316,12 @@ class _BuilderScreenState extends State<BuilderScreen> {
                   child: Row(
                     children: [
                       const Spacer(),
-                      MyBSplitButton(
-                        onSaveAndOpen: _saveAndOpenMyB,
-                        onOpen: _openMyB,
-                      ),
-                      const SizedBox(width: 8),
-                      _buildPillButton(
-                        label: 'Badges',
-                        onTap: _openBadges,
-                      ),
-                      const SizedBox(width: 8),
-                      _buildPillButton(
-                        label: 'Moves',
-                        onTap: _openMoves,
+                      MoreExpandableButton(
+                        key: _moreButtonKey,
+                        onSave: _saveBuild,
+                        onMyBuilds: _openMyB,
+                        onMoves: _openMoves,
+                        onBadges: _openBadges,
                       ),
                     ],
                   ),
@@ -376,7 +385,7 @@ class _BuilderScreenState extends State<BuilderScreen> {
                         onTap: _closeBadges,
                       ),
                       const SizedBox(width: 8),
-                      Text('Badges', style: AppTokens.pageTitle),
+                      Text(context.tr('badges'), style: AppTokens.pageTitle),
                     ],
                   ),
                 ),
@@ -452,7 +461,7 @@ class _BuilderScreenState extends State<BuilderScreen> {
                         onTap: _closeMoves,
                       ),
                       const SizedBox(width: 8),
-                      Text('Moves', style: AppTokens.pageTitle),
+                      Text(context.tr('moves'), style: AppTokens.pageTitle),
                     ],
                   ),
                 ),
@@ -516,7 +525,7 @@ class _BuilderScreenState extends State<BuilderScreen> {
                   label,
                   style: TextStyle(
                     fontSize: 13.5,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w800,
                     color: foreground,
                     fontFamily: AppTokens.fontFamily,
                   ),

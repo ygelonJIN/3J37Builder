@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import 'center_dialog.dart';
 import '../data/models/enums.dart';
 import '../data/models/badge_data.dart';
+import '../extensions/context_extensions.dart';
 
 class GoalCard extends StatefulWidget {
   final ValueChanged<bool>? onExpandedChanged;
@@ -61,13 +62,13 @@ class _GoalCardState extends State<GoalCard> {
                 children: [
                   Row(
                     children: [
-                      Text('GOAL', style: AppTokens.brandMark.copyWith(fontSize: 14, letterSpacing: 2, color: AppTokens.textSecondary)),
+                      Text(context.tr('go'), style: AppTokens.brandMark.copyWith(fontSize: 14, letterSpacing: 2, color: AppTokens.textSecondary)),
                       const Spacer(),
-                      Text('Badges:$badgeCount', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 9, fontWeight: FontWeight.w500, color: AppTokens.textSecondary)),
+                      Text('${context.tr("badges")}:$badgeCount', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 9, fontWeight: FontWeight.w700, color: AppTokens.textSecondary)),
                       const SizedBox(width: 8),
-                      Text('Moves:$moveCount', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 9, fontWeight: FontWeight.w500, color: AppTokens.textSecondary)),
+                      Text('${context.tr("moves")}:$moveCount', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 9, fontWeight: FontWeight.w700, color: AppTokens.textSecondary)),
                       const SizedBox(width: 8),
-                      Text('Attr:$attrCount', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 9, fontWeight: FontWeight.w500, color: AppTokens.textSecondary)),
+                      Text('Attr:$attrCount', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 9, fontWeight: FontWeight.w700, color: AppTokens.textSecondary)),
                       const SizedBox(width: 8),
                       Icon(_expanded ? Icons.expand_less : Icons.expand_more, size: 16, color: AppTokens.textSecondary),
                     ],
@@ -141,7 +142,7 @@ class _GoalCardState extends State<GoalCard> {
     if (combinedReqs.isEmpty) return const SizedBox.shrink();
 
     final reqChips = combinedReqs.entries.map((e) {
-      final attrName = loader.attributes[e.key].displayName;
+      final attrName = context.tr(loader.attributes[e.key].name);
       return '$attrName ${e.value}';
     }).toList();
 
@@ -156,7 +157,7 @@ class _GoalCardState extends State<GoalCard> {
             style: TextStyle(
               fontFamily: AppTokens.fontFamily,
               fontSize: 8,
-              fontWeight: FontWeight.w500,
+              fontWeight: FontWeight.w700,
               color: AppTokens.keyOff,
             ),
           ),
@@ -165,7 +166,7 @@ class _GoalCardState extends State<GoalCard> {
             style: TextStyle(
               fontFamily: AppTokens.fontFamily,
               fontSize: 8,
-              fontWeight: FontWeight.w400,
+              fontWeight: FontWeight.w800,
               color: AppTokens.keyOff,
             ),
           )),
@@ -178,7 +179,7 @@ class _GoalCardState extends State<GoalCard> {
   Widget _buildSectionHeader(String title) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
-      child: Text(title, style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 14, fontWeight: FontWeight.w600, color: AppTokens.textPrimary)),
+      child: Text(title, style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 14, fontWeight: FontWeight.w800, color: AppTokens.textPrimary)),
     );
   }
 
@@ -199,7 +200,7 @@ class _GoalCardState extends State<GoalCard> {
           children: [
             Icon(Icons.add, size: 36, color: AppTokens.primary),
             const SizedBox(width: 4),
-            Text('Add Goal', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 12, fontWeight: FontWeight.w500, color: AppTokens.primary)),
+            Text(context.tr('add_goal'), style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 12, fontWeight: FontWeight.w700, color: AppTokens.primary)),
           ],
         ),
       ),
@@ -229,9 +230,9 @@ class _GoalCardState extends State<GoalCard> {
               Expanded(
                 child: Text.rich(
                   TextSpan(children: [
-                    TextSpan(text: badge.badgeName, style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 11, fontWeight: FontWeight.w500, color: AppTokens.textSecondary)),
+                    TextSpan(text: badge.badgeName, style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 11, fontWeight: FontWeight.w700, color: AppTokens.textSecondary)),
                     TextSpan(text: '  ', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 11)),
-                    TextSpan(text: badge.tier, style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 11, fontWeight: FontWeight.w600, color: tierColor)),
+                    TextSpan(text: badge.tier, style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 11, fontWeight: FontWeight.w800, color: tierColor)),
                   ]),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -274,11 +275,11 @@ class _GoalCardState extends State<GoalCard> {
       if (i > 0) spans.add(TextSpan(text: ', ', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 9)));
       spans.add(TextSpan(
         text: '${r.attributeName} ${r.minimum}',
-        style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 9, fontWeight: FontWeight.w500, color: discColor),
+        style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 9, fontWeight: FontWeight.w700, color: discColor),
       ));
     }
     return Text.rich(TextSpan(children: [
-      TextSpan(text: 'Attr: ', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 9, fontWeight: FontWeight.w400, color: AppTokens.textSecondary)),
+      TextSpan(text: 'Attr: ', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 9, fontWeight: FontWeight.w800, color: AppTokens.textSecondary)),
       ...spans,
     ]), overflow: TextOverflow.ellipsis);
   }
@@ -298,7 +299,7 @@ class _GoalCardState extends State<GoalCard> {
               Expanded(
                 child: Text(
                   '${move.moveName}',
-                  style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 11, fontWeight: FontWeight.w500, color: color),
+                  style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 11, fontWeight: FontWeight.w700, color: color),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -340,7 +341,7 @@ class _GoalCardState extends State<GoalCard> {
           Expanded(
             child: Text(
               '${attr.attributeName}  ${attr.targetValue}',
-              style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 11, fontWeight: FontWeight.w500, color: color),
+              style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 11, fontWeight: FontWeight.w700, color: color),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -508,7 +509,7 @@ class _GoalAddDialogContentState extends State<_GoalAddDialogContent> {
             // ── Error + Buttons (fixed) ──
             if (_errorMessage != null) ...[
               const SizedBox(height: 4),
-              Text(_errorMessage!, style: AppTokens.caption.copyWith(color: Colors.red, fontSize: 11, fontWeight: FontWeight.w600)),
+              Text(_errorMessage!, style: AppTokens.caption.copyWith(color: Colors.red, fontSize: 11, fontWeight: FontWeight.w800)),
             ],
             const SizedBox(height: 12),
             Row(
@@ -516,7 +517,7 @@ class _GoalAddDialogContentState extends State<_GoalAddDialogContent> {
               children: [
                 TextButton(
                   onPressed: () { Navigator.pop(context); },
-                  child: Text('Cancel', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 14, color: AppTokens.textSecondary)),
+                  child: Text(context.tr('cancel'), style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 14, color: AppTokens.textSecondary)),
                 ),
                 const SizedBox(width: 8),
                 ElevatedButton(
@@ -526,7 +527,7 @@ class _GoalAddDialogContentState extends State<_GoalAddDialogContent> {
                     foregroundColor: AppTokens.onPrimary,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTokens.radius)),
                   ),
-                  child: Text('Add', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 14, fontWeight: FontWeight.w600)),
+                  child: Text(context.tr('add'), style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 14, fontWeight: FontWeight.w800)),
                 ),
               ],
             ),
@@ -567,7 +568,7 @@ class _GoalAddDialogContentState extends State<_GoalAddDialogContent> {
                 style: TextStyle(
                   fontFamily: AppTokens.fontFamily,
                   fontSize: 12,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w800,
                   color: selected ? AppTokens.onPrimary : AppTokens.textSecondary,
                 ),
               ),
@@ -620,7 +621,7 @@ class _GoalAddDialogContentState extends State<_GoalAddDialogContent> {
               children: [
                 Expanded(
                   child: Text(
-                    _selectedTier?.label ?? 'Select badge tier',
+                    _selectedTier != null ? context.tr(_selectedTier!.key) : context.tr('select_badge_tier'),
                     style: TextStyle(
                       fontFamily: AppTokens.fontFamily,
                       fontSize: 13,
@@ -661,7 +662,7 @@ class _GoalAddDialogContentState extends State<_GoalAddDialogContent> {
                       children: [
                         if (selected) Icon(Icons.check, size: 14, color: AppTokens.primary),
                         if (selected) const SizedBox(width: 8),
-                        Text(tier.label, style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 13, fontWeight: selected ? FontWeight.w600 : FontWeight.w400, color: selected ? AppTokens.primary : AppTokens.textPrimary)),
+                        Text(context.tr(tier.key), style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 13, fontWeight: selected ? FontWeight.w800 : FontWeight.w800, color: selected ? AppTokens.primary : AppTokens.textPrimary)),
                       ],
                     ),
                   ),
@@ -684,7 +685,7 @@ class _GoalAddDialogContentState extends State<_GoalAddDialogContent> {
       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
       style: AppTokens.body.copyWith(fontSize: 13),
       decoration: InputDecoration(
-        hintText: 'Target value (X in X/Y)',
+        hintText: context.tr('target_value_hint'),
         hintStyle: AppTokens.caption,
         filled: true,
         fillColor: AppTokens.surfaceAlt,
@@ -712,8 +713,8 @@ class _GoalAddDialogContentState extends State<_GoalAddDialogContent> {
   // ── Badges list – collapsible by discipline (sliver pinned headers) ──
   Widget _buildBadgesList(String query) {
     final allBadges = loader.badgeDefinitions.where((b) => b.allowed).toList();
-    final filtered = query.isEmpty ? allBadges : allBadges.where((b) => b.displayName.toLowerCase().contains(query)).toList();
-    if (filtered.isEmpty) return Center(child: Text('No results', style: AppTokens.caption));
+    final filtered = query.isEmpty ? allBadges : allBadges.where((b) => context.tr(b.name).toLowerCase().contains(query)).toList();
+    if (filtered.isEmpty) return Center(child: Text(context.tr('no_results'), style: AppTokens.caption));
     final grouped = <Discipline, List<BadgeDef>>{};
     for (final b in filtered) { grouped.putIfAbsent(b.discipline, () => []).add(b); }
     // Compute last expanded discipline key
@@ -748,7 +749,7 @@ class _GoalAddDialogContentState extends State<_GoalAddDialogContent> {
               child: Row(children: [
                 Icon(expanded ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_right, size: 14, color: color),
                 const SizedBox(width: 4),
-                Text('${disc.displayName} (${badges.length})', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 11, fontWeight: FontWeight.w700, color: color)),
+                Text('${context.tr(disc.name)} (${badges.length})', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 11, fontWeight: FontWeight.w900, color: color)),
               ]),
             ),
           ),
@@ -775,8 +776,8 @@ class _GoalAddDialogContentState extends State<_GoalAddDialogContent> {
                 child: Row(children: [
                   Container(width: 2, height: 12, color: color),
                   const SizedBox(width: 6),
-                  Expanded(child: Text(b.displayName, style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 11, fontWeight: selected ? FontWeight.w600 : FontWeight.w400, color: alreadyAdded ? AppTokens.keyOff : AppTokens.textPrimary))),
-                  if (alreadyAdded) Text('Added', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 10, color: AppTokens.keyOff)),
+                  Expanded(child: Text(context.tr(b.name), style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 11, fontWeight: selected ? FontWeight.w800 : FontWeight.w800, color: alreadyAdded ? AppTokens.keyOff : AppTokens.textPrimary))),
+                  if (alreadyAdded) Text(context.tr('added'), style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 10, color: AppTokens.keyOff)),
                 ]),
               ),
             );
@@ -831,7 +832,7 @@ class _GoalAddDialogContentState extends State<_GoalAddDialogContent> {
                 child: Row(children: [
                   Icon(expanded ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_right, size: 14, color: AppTokens.textSecondary),
                   const SizedBox(width: 4),
-                  Expanded(child: Text('${group.getDisplayName()} (${anims.length})', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 11, fontWeight: FontWeight.w700, color: AppTokens.textSecondary))),
+                  Expanded(child: Text('${group.getDisplayName()} (${anims.length})', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 11, fontWeight: FontWeight.w900, color: AppTokens.textSecondary))),
                 ]),
               ),
             ),
@@ -855,8 +856,8 @@ class _GoalAddDialogContentState extends State<_GoalAddDialogContent> {
                     borderRadius: BorderRadius.circular(3),
                   ),
                   child: Row(children: [
-                    Expanded(child: Text(a.getDisplayName(), style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 11, fontWeight: selected ? FontWeight.w600 : FontWeight.w400, color: alreadyAdded ? AppTokens.keyOff : AppTokens.textPrimary))),
-                    if (alreadyAdded) Text('Added', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 10, color: AppTokens.keyOff)),
+                    Expanded(child: Text(a.getDisplayName(), style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 11, fontWeight: selected ? FontWeight.w800 : FontWeight.w800, color: alreadyAdded ? AppTokens.keyOff : AppTokens.textPrimary))),
+                    if (alreadyAdded) Text(context.tr('added'), style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 10, color: AppTokens.keyOff)),
                   ]),
                 ),
               );
@@ -866,15 +867,15 @@ class _GoalAddDialogContentState extends State<_GoalAddDialogContent> {
         ));
       }
     }
-    if (slivers.isEmpty) return Center(child: Text('No results', style: AppTokens.caption));
+    if (slivers.isEmpty) return Center(child: Text(context.tr('no_results'), style: AppTokens.caption));
     return CustomScrollView(slivers: slivers);
   }
 
   // ── Attributes list ──
   Widget _buildAttrsList(String query) {
     final allAttrs = loader.attributes;
-    final filtered = query.isEmpty ? allAttrs : allAttrs.where((a) => a.displayName.toLowerCase().contains(query)).toList();
-    if (filtered.isEmpty) return Center(child: Text('No results', style: AppTokens.caption));
+    final filtered = query.isEmpty ? allAttrs : allAttrs.where((a) => context.tr(a.name).toLowerCase().contains(query)).toList();
+    if (filtered.isEmpty) return Center(child: Text(context.tr('no_results'), style: AppTokens.caption));
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -897,8 +898,8 @@ class _GoalAddDialogContentState extends State<_GoalAddDialogContent> {
             child: Row(children: [
               Container(width: 3, height: 14, color: color),
               const SizedBox(width: 6),
-              Expanded(child: Text(a.displayName, style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 12, fontWeight: selected ? FontWeight.w600 : FontWeight.w400, color: alreadyAdded ? AppTokens.keyOff : AppTokens.textPrimary))),
-              if (alreadyAdded) Text('Added', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 10, color: AppTokens.keyOff)),
+              Expanded(child: Text(context.tr(a.name), style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 12, fontWeight: selected ? FontWeight.w800 : FontWeight.w800, color: alreadyAdded ? AppTokens.keyOff : AppTokens.textPrimary))),
+              if (alreadyAdded) Text(context.tr('added'), style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 10, color: AppTokens.keyOff)),
             ]),
           ),
         );
@@ -944,7 +945,7 @@ class _GoalAddDialogContentState extends State<_GoalAddDialogContent> {
       final attrReqs = <GoalAttributeRequirement>[];
       for (final req in tierReqs) {
         for (final r in req.requirements) {
-          final displayName = loader.attributes[r.attributeIndex].displayName;
+          final displayName = context.tr(loader.attributes[r.attributeIndex].name);
           attrReqs.add(GoalAttributeRequirement(
             attributeIndex: r.attributeIndex,
             attributeName: displayName,
@@ -955,7 +956,7 @@ class _GoalAddDialogContentState extends State<_GoalAddDialogContent> {
       
       state.addGoalBadge(GoalBadge(
         badgeId: badgeId,
-        badgeName: badge.displayName,
+        badgeName: context.tr(badge.name),
         tier: _selectedTier!.label,
         targetValue: tierValue,
         attributeRequirements: attrReqs,
@@ -1014,7 +1015,7 @@ class _GoalAddDialogContentState extends State<_GoalAddDialogContent> {
                 if (attrIndex >= 0) {
                   moveAttrReqs.add(GoalAttributeRequirement(
                     attributeIndex: attrIndex,
-                    attributeName: loader.attributes[attrIndex].displayName,
+                    attributeName: context.tr(loader.attributes[attrIndex].name),
                     minimum: req.value,
                   ));
                 }
@@ -1045,7 +1046,7 @@ class _GoalAddDialogContentState extends State<_GoalAddDialogContent> {
       }
       final error = state.validateGoalAttribute(attrIndex, targetValue);
       if (error != null) { setState(() { _errorMessage = error; }); return; }
-      state.addGoalAttribute(GoalAttribute(attributeIndex: attrIndex, attributeName: loader.attributes[attrIndex].displayName, targetValue: targetValue));
+      state.addGoalAttribute(GoalAttribute(attributeIndex: attrIndex, attributeName: context.tr(loader.attributes[attrIndex].name), targetValue: targetValue));
     }
 
     Navigator.pop(context);

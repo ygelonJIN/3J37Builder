@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'theme/app_tokens.dart';
+import 'package:provider/provider.dart';
 import 'screens/builder_screen.dart';
+import 'services/locale_service.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,7 +22,12 @@ class Builder3J37App extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return ChangeNotifierProvider(
+      create: (_) => LocaleService(),
+      child: Consumer<LocaleService>(
+        builder: (context, localeService, _) {
+          return MaterialApp(
+            locale: localeService.locale,
       title: '3J37 Builder',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
@@ -120,6 +127,9 @@ class Builder3J37App extends StatelessWidget {
         ),
       ),
       home: const BuilderScreen(),
+          );
+        },
+      ),
     );
   }
 }

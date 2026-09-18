@@ -6,6 +6,7 @@ import '../data/services/dataset_loader.dart';
 import '../theme/app_tokens.dart';
 import 'package:provider/provider.dart';
 import 'center_dialog.dart';
+import '../extensions/context_extensions.dart';
 
 class BadgePanel extends StatelessWidget {
   const BadgePanel({super.key});
@@ -53,11 +54,11 @@ class BadgePanel extends StatelessWidget {
                 child: Row(
                   children: [
                     Text(
-                      disc.displayName,
+                      context.tr(disc.name),
                       style: TextStyle(
                         fontFamily: AppTokens.fontFamily,
                         fontSize: 15,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w800,
                         color: colour,
                       ),
                     ),
@@ -67,7 +68,7 @@ class BadgePanel extends StatelessWidget {
                       style: TextStyle(
                         fontFamily: AppTokens.fontFamily,
                         fontSize: 14,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w800,
                         color: colour,
                       ),
                     ),
@@ -122,7 +123,7 @@ class _TokenBudgetRow extends StatelessWidget {
             style: TextStyle(
               fontFamily: AppTokens.fontFamily,
               fontSize: 30,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w800,
               color: AppTokens.primary,
             ),
           ),
@@ -135,12 +136,12 @@ class _TokenBudgetRow extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 child: Text(
-                  '${disc.displayName}  $r/$b Tokens  ${slotBudget[disc.index]} Slots',
+                  '${context.tr(disc.name)}  $r/$b Tokens  ${slotBudget[disc.index]} Slots',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontFamily: AppTokens.fontFamily,
                     fontSize: 14,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w800,
                     color: colour,
                   ),
                 ),
@@ -248,7 +249,7 @@ class _BadgeChip extends StatelessWidget {
                 const SizedBox(height: 8),
                 _buildHeightRequirement(context, badge, state),
                 const SizedBox(height: 16),
-                Text('Tap tier to equip/unequip', style: AppTokens.caption),
+                Text(context.tr('tap_tier_to_equip'), style: AppTokens.caption),
                 const SizedBox(height: 8),
                 ...[BadgeTier.bronze, BadgeTier.silver, BadgeTier.gold, BadgeTier.hallOfFame].map((tier) {
                   final reqs = loader.tierRequirements.where(
@@ -285,8 +286,8 @@ class _BadgeChip extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(2),
                               ),
                               child: Text(
-                                tier.key.toUpperCase(),
-                                style: AppTokens.caption.copyWith(color: tierColour, fontWeight: FontWeight.w600),
+                                context.tr(tier.key),
+                                style: AppTokens.caption.copyWith(color: tierColour, fontWeight: FontWeight.w800),
                               ),
                             ),
                             const Spacer(),
@@ -318,7 +319,7 @@ class _BadgeChip extends StatelessWidget {
                             ),
                             child: Text(
                               isCurrentTier ? 'Unequip' : 'Equip',
-                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
                             ),
                           ),
                         ),
