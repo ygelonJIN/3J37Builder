@@ -500,7 +500,7 @@ class _MyBPageState extends State<MyBPage> {
                   onTap: _showImportDialog,
                   borderRadius: BorderRadius.circular(AppTokens.radius),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [

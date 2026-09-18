@@ -1,0 +1,217 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../theme/app_tokens.dart';
+import '../services/locale_service.dart';
+import '../extensions/context_extensions.dart';
+import 'language_switch_button.dart';
+
+class MoreExpandableButton extends StatefulWidget {
+  final VoidCallback onSave;
+  final VoidCallback onMyBuilds;
+  final VoidCallback onMoves;
+  final VoidCallback onBadges;
+
+  const MoreExpandableButton({
+    super.key,
+    required this.onSave,
+    required this.onMyBuilds,
+    required this.onMoves,
+    required this.onBadges,
+  });
+
+  @override
+  State<MoreExpandableButton> createState() => MoreExpandableButtonState();
+}
+
+class MoreExpandableButtonState extends State<MoreExpandableButton>
+    with SingleTickerProviderStateMixin {
+  bool _expanded = false;
+  bool _justToggled = false;
+  late AnimationController _controller;
+  late Animation<double> _expandAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: AppTokens.animMedium,
+      vsync: this,
+    );
+    _expandAnimation = CurvedAnimation(
+      parent: _controller,
+      curve: AppTokens.curveOut,
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void collapse() {
+    if (_expanded && !_justToggled) {
+      setState(() {
+        _expanded = false;
+        _controller.reverse();
+      });
+    }
+  }
+
+  bool get isExpanded => _expanded;
+
+  void _toggle() {
+    _justToggled = true;
+    Future.delayed(const Duration(milliseconds: 400), () {
+      _justToggled = false;
+    });
+    setState(() {
+      _expanded = !_expanded;
+      if (_expanded) {
+        _controller.forward();
+      } else {
+        _controller.reverse();
+      }
+    });
+  }
+
+  void _onItemTap(VoidCallback callback) {
+    setState(() {
+      _expanded = false;
+      _controller.reverse();
+    });
+    callback();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        SizeTransition(
+          sizeFactor: _expandAnimation,
+          axisAlignment: 1.0,
+          child: FadeTransition(
+            opacity: _expandAnimation,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                _buildMenuItem(
+                  label: context.tr('moves'),
+                  onTap: () => _onItemTap(widget.onMoves),
+                ),
+                const SizedBox(height: 8),
+                _buildMenuItem(
+                  label: context.tr('badges'),
+                  onTap: () => _onItemTap(widget.onBadges),
+                ),
+                const SizedBox(height: 8),
+                _buildMenuItem(
+                  label: context.tr('my_builds'),
+                  onTap: () => _onItemTap(widget.onMyBuilds),
+                  highlight: true,
+                ),
+                const SizedBox(height: 8),
+                _buildMenuItem(
+                  label: context.tr('save'),
+                  onTap: () => _onItemTap(widget.onSave),
+                  highlight: true,
+                ),
+                const SizedBox(height: 8),
+                const LanguageSwitchButton(),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        ),
+        _buildMainButton(),
+      ],
+    );
+  }
+
+  Widget _buildMainButton() {
+    return Material(
+      color: _expanded ? AppTokens.primary : AppTokens.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppTokens.radius),
+        side: BorderSide(
+          color: _expanded ? AppTokens.primary : AppTokens.textSecondary,
+          width: 1,
+        ),
+      ),
+      elevation: 2,
+      shadowColor: AppTokens.buttonShadow,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: _toggle,
+        borderRadius: BorderRadius.circular(AppTokens.radius),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                context.tr('more'),
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: _expanded ? AppTokens.onPrimary : AppTokens.textPrimary,
+                  fontFamily: AppTokens.fontFamily,
+                ),
+              ),
+              const SizedBox(width: 6),
+              AnimatedRotation(
+                turns: _expanded ? 0.5 : 0.0,
+                duration: AppTokens.animMedium,
+                child: Icon(
+                  Icons.keyboard_arrow_up_rounded,
+                  size: 18,
+                  color: _expanded ? AppTokens.onPrimary : AppTokens.textPrimary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMenuItem({
+    required String label,
+    required VoidCallback onTap,
+    bool highlight = false,
+  }) {
+    final bgColor = highlight ? AppTokens.surfaceAlt : AppTokens.surface;
+    final borderColor = highlight ? AppTokens.primary : AppTokens.textSecondary;
+    final textColor = highlight ? AppTokens.primary : AppTokens.textPrimary;
+
+    return Material(
+      color: bgColor,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppTokens.radius),
+        side: BorderSide(color: borderColor, width: 1),
+      ),
+      elevation: 2,
+      shadowColor: AppTokens.buttonShadow,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppTokens.radius),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              color: textColor,
+              fontFamily: AppTokens.fontFamily,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

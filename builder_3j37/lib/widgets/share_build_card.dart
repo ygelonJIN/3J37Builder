@@ -54,6 +54,16 @@ class ShareBuildCard extends StatelessWidget {
         color: const Color(0xFF0E0D10),
         child: Stack(
           children: [
+            // Background image
+            Positioned.fill(
+              child: Image.asset(
+                'assets/images/share_bg.jpg',
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(color: const Color(0xFF0E0D10));
+                },
+              ),
+            ),
             Padding(
               padding: const EdgeInsets.fromLTRB(56, 48, 56, 36),
               child: Column(
@@ -67,7 +77,7 @@ class ShareBuildCard extends StatelessWidget {
                           buildName!,
                           style: TextStyle(
                             fontFamily: AppTokens.fontFamily,
-                            fontSize: 28 * textScaleFactor,
+                            fontSize: 24 * textScaleFactor,
                             fontWeight: FontWeight.w900,
                             color: AppTokens.primary,
                             letterSpacing: 1.5,
@@ -121,7 +131,7 @@ class ShareBuildCard extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _infoCellCompact(context.tr('share_pos'), state.position.label),
+          _infoCellCompact(context.tr('share_pos'), state.position.label, sub: ''),
           _infoCellSep(),
           _infoCellCompact(context.tr('share_ht'), '${hCm}cm', sub: "$hFeet'$hInc\""),
           _infoCellSep(),
@@ -140,19 +150,19 @@ class ShareBuildCard extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(label, style: TextStyle(
-          fontFamily: AppTokens.fontFamily, fontSize: 11 * textScaleFactor,
+          fontFamily: AppTokens.fontFamily, fontSize: 13 * textScaleFactor,
           fontWeight: FontWeight.w700, color: AppTokens.textSecondary,
           letterSpacing: 2,
         )),
         const SizedBox(height: 2),
         Text(value, style: TextStyle(
-          fontFamily: AppTokens.fontFamily, fontSize: 22 * textScaleFactor,
+          fontFamily: AppTokens.fontFamily, fontSize: 20 * textScaleFactor,
           fontWeight: FontWeight.w900, color: AppTokens.textPrimary,
         )),
         if (sub != null) ...[
           const SizedBox(height: 1),
           Text(sub, style: TextStyle(
-            fontFamily: AppTokens.fontFamily, fontSize: 11 * textScaleFactor,
+            fontFamily: AppTokens.fontFamily, fontSize: 13 * textScaleFactor,
             fontWeight: FontWeight.w500, color: AppTokens.textSecondary,
           )),
         ],

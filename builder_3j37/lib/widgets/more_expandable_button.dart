@@ -204,7 +204,7 @@ class MoreExpandableButtonState extends State<MoreExpandableButton>
         onTap: onTap,
         borderRadius: BorderRadius.circular(AppTokens.radius),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: Text(
             label,
             style: TextStyle(
@@ -241,14 +241,14 @@ class MoreExpandableButtonState extends State<MoreExpandableButton>
         onTap: _toggle,
         borderRadius: BorderRadius.circular(AppTokens.radius),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
                 context.tr('more'),
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: 15,
                   fontWeight: FontWeight.w800,
                   color: _expanded ? AppTokens.onPrimary : AppTokens.textPrimary,
                   fontFamily: AppTokens.fontFamily,
