@@ -1,0 +1,255 @@
+/* app.wxss - 3J37 Builder 全局样式 */
+/* 深墨金色主题 */
+
+page {
+  --bg: #1C1B1E;
+  --surface: #2D2A24;
+  --surface-alt: #241F1A;
+  --primary: #E0AE40;
+  --on-primary: #241C07;
+  --text: #F2E9D6;
+  --text-secondary: #B09B74;
+  --text-muted: #6F6B60;
+  --card-bg: #2D2A24;
+  --card-border: rgba(224, 174, 64, 0.4);
+  --chip-bg: rgba(45, 42, 36, 0.92);
+  --chip-border: #B09B74;
+  --input-border: #D8A84E;
+  --divider: #B09B74;
+  --radius: 2rpx;
+  
+  /* Discipline colors */
+  --finishing: #3764B3;
+  --shooting: #61AF57;
+  --playmaking: #E29754;
+  --defense: #DE574B;
+  --rebounding: #9785EA;
+  --physicals: #A27D32;
+  
+  /* Badge tier colors */
+  --bronze: #CD7F32;
+  --silver: #C0C0C0;
+  --gold: #E0AE40;
+  --hall-of-fame: #9B59B6;
+  --legend: #FF6B6B;
+
+  font-family: 'Noto Serif SC', serif;
+  background-color: var(--bg);
+  color: var(--text);
+  font-size: 28rpx;
+  font-weight: 800;
+}
+
+/* 通用类 */
+.container {
+  padding: 20rpx;
+}
+
+.card {
+  background: var(--card-bg);
+  border: 1rpx solid var(--card-border);
+  border-radius: var(--radius);
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+}
+
+.card-title {
+  font-size: 32rpx;
+  font-weight: 800;
+  color: var(--primary);
+  margin-bottom: 16rpx;
+}
+
+.card-body {
+  font-size: 28rpx;
+  color: var(--text);
+}
+
+.card-muted {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+}
+
+/* 按钮 */
+.btn-primary {
+  background: var(--primary);
+  color: var(--on-primary);
+  border: none;
+  border-radius: var(--radius);
+  padding: 16rpx 32rpx;
+  font-size: 28rpx;
+  font-weight: 800;
+  text-align: center;
+}
+
+.btn-outline {
+  background: transparent;
+  color: var(--text);
+  border: 1rpx solid var(--chip-border);
+  border-radius: var(--radius);
+  padding: 16rpx 32rpx;
+  font-size: 28rpx;
+  font-weight: 800;
+  text-align: center;
+}
+
+.btn-outline::after {
+  border: none;
+}
+
+.btn-primary::after {
+  border: none;
+}
+
+/* 输入框 */
+.input {
+  background: var(--surface);
+  border: 1rpx solid var(--input-border);
+  border-radius: var(--radius);
+  padding: 16rpx 24rpx;
+  color: var(--text);
+  font-size: 28rpx;
+  font-weight: 800;
+}
+
+/* 滑块 */
+.slider-wrap {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.slider-wrap slider {
+  flex: 1;
+}
+
+/* 标签 */
+.tag {
+  display: inline-block;
+  background: var(--chip-bg);
+  border: 1rpx solid var(--chip-border);
+  border-radius: var(--radius);
+  padding: 8rpx 16rpx;
+  font-size: 22rpx;
+  color: var(--text-secondary);
+}
+
+/* Discipline颜色 */
+.disc-finishing { color: var(--finishing); }
+.disc-shooting { color: var(--shooting); }
+.disc-playmaking { color: var(--playmaking); }
+.disc-defense { color: var(--defense); }
+.disc-rebounding { color: var(--rebounding); }
+.disc-physicals { color: var(--physicals); }
+
+.disc-bg-finishing { background: var(--finishing); color: #fff; }
+.disc-bg-shooting { background: var(--shooting); color: #fff; }
+.disc-bg-playmaking { background: var(--playmaking); color: #fff; }
+.disc-bg-defense { background: var(--defense); color: #fff; }
+.disc-bg-rebounding { background: var(--rebounding); color: #fff; }
+.disc-bg-physicals { background: var(--physicals); color: #fff; }
+
+/* Badge tier颜色 */
+.tier-bronze { color: var(--bronze); }
+.tier-silver { color: var(--silver); }
+.tier-gold { color: var(--gold); }
+.tier-hall-of-fame { color: var(--hall-of-fame); }
+.tier-legend { color: var(--legend); }
+
+/* 弹窗 */
+.modal-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-content {
+  background: var(--surface);
+  border: 1rpx solid var(--card-border);
+  border-radius: var(--radius);
+  padding: 32rpx;
+  width: 80%;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+/* 分割线 */
+.divider {
+  height: 1rpx;
+  background: var(--divider);
+  margin: 16rpx 0;
+  opacity: 0.5;
+}
+
+/* Flex utilities */
+.flex { display: flex; }
+.flex-col { flex-direction: column; }
+.flex-row { flex-direction: row; }
+.flex-wrap { flex-wrap: wrap; }
+.items-center { align-items: center; }
+.justify-center { justify-content: center; }
+.justify-between { justify-content: space-between; }
+.gap-8 { gap: 8rpx; }
+.gap-12 { gap: 12rpx; }
+.gap-16 { gap: 16rpx; }
+.gap-20 { gap: 20rpx; }
+.gap-24 { gap: 24rpx; }
+.flex-1 { flex: 1; }
+
+/* Text utilities */
+.text-center { text-align: center; }
+.text-primary { color: var(--primary); }
+.text-secondary { color: var(--text-secondary); }
+.text-sm { font-size: 24rpx; }
+.text-xs { font-size: 20rpx; }
+.text-lg { font-size: 32rpx; }
+.text-xl { font-size: 36rpx; }
+.font-bold { font-weight: 800; }
+
+/* Spacing */
+.mt-8 { margin-top: 8rpx; }
+.mt-16 { margin-top: 16rpx; }
+.mt-24 { margin-top: 24rpx; }
+.mb-8 { margin-bottom: 8rpx; }
+.mb-16 { margin-bottom: 16rpx; }
+.mb-24 { margin-bottom: 24rpx; }
+.p-16 { padding: 16rpx; }
+.p-24 { padding: 24rpx; }
+
+/* Loading */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+}
+
+.brand-mark {
+  font-size: 40rpx;
+  font-weight: 800;
+  letter-spacing: 8rpx;
+  color: var(--primary);
+  margin-top: 24rpx;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 4rpx;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--text-secondary);
+  border-radius: 2rpx;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
