@@ -10,15 +10,23 @@ import 'body_configurator.dart';
 
 class OverallDisplay extends StatefulWidget {
   final ValueChanged<bool>? onExpandedChanged;
+  final bool initialExpanded;
+  final double fontSizeOffset;
   
-  const OverallDisplay({super.key, this.onExpandedChanged});
+  const OverallDisplay({super.key, this.onExpandedChanged, this.initialExpanded = false, this.fontSizeOffset = 0});
 
   @override
   State<OverallDisplay> createState() => _OverallDisplayState();
 }
 
 class _OverallDisplayState extends State<OverallDisplay> {
-  bool _expanded = false;
+  late bool _expanded;
+
+  @override
+  void initState() {
+    super.initState();
+    _expanded = widget.initialExpanded;
+  }
 
   void _toggleExpanded() {
     FocusScope.of(context).unfocus();
@@ -72,7 +80,7 @@ class _OverallDisplayState extends State<OverallDisplay> {
                   '${state.position.label}  ${_fmtHeight(state.heightInches)}  ${_fmtWeight(state.weightLb)}  ${_fmtWingspan(state.wingspanInches)}',
                   style: TextStyle(
                     fontFamily: AppTokens.fontFamily,
-                    fontSize: 10,
+                    fontSize: 10 + widget.fontSizeOffset,
                     fontWeight: FontWeight.w800,
                     color: AppTokens.primary,
                     letterSpacing: 0.2,

@@ -13,15 +13,24 @@ import '../extensions/context_extensions.dart';
 
 class GoalCard extends StatefulWidget {
   final ValueChanged<bool>? onExpandedChanged;
+  final bool initialExpanded;
+  final bool removeMaxHeight;
+  final double fontSizeOffset;
 
-  const GoalCard({super.key, this.onExpandedChanged});
+  const GoalCard({super.key, this.onExpandedChanged, this.initialExpanded = false, this.removeMaxHeight = false, this.fontSizeOffset = 0});
 
   @override
   State<GoalCard> createState() => _GoalCardState();
 }
 
 class _GoalCardState extends State<GoalCard> {
-  bool _expanded = false;
+  late bool _expanded;
+
+  @override
+  void initState() {
+    super.initState();
+    _expanded = widget.initialExpanded;
+  }
 
   void _toggleExpanded() {
     FocusScope.of(context).unfocus();
@@ -61,13 +70,13 @@ class _GoalCardState extends State<GoalCard> {
                 children: [
                   Row(
                     children: [
-                      Text(context.tr('goal'), style: AppTokens.brandMark.copyWith(fontSize: 14, letterSpacing: 2, color: AppTokens.textSecondary)),
+                      Text(context.tr('goal'), style: AppTokens.brandMark.copyWith(fontSize: 14 + widget.fontSizeOffset, letterSpacing: 2, color: AppTokens.textSecondary)),
                       const Spacer(),
-                      Text('${context.tr("badges")}:$badgeCount', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 9, fontWeight: FontWeight.w700, color: AppTokens.textSecondary)),
+                      Text('${context.tr("badges")}:$badgeCount', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 9 + widget.fontSizeOffset, fontWeight: FontWeight.w700, color: AppTokens.textSecondary)),
                       const SizedBox(width: 8),
-                      Text('${context.tr("moves")}:$moveCount', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 9, fontWeight: FontWeight.w700, color: AppTokens.textSecondary)),
+                      Text('${context.tr("moves")}:$moveCount', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 9 + widget.fontSizeOffset, fontWeight: FontWeight.w700, color: AppTokens.textSecondary)),
                       const SizedBox(width: 8),
-                      Text('${context.tr("attribute_short")}:$attrCount', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 9, fontWeight: FontWeight.w700, color: AppTokens.textSecondary)),
+                      Text('${context.tr("attribute_short")}:$attrCount', style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 9 + widget.fontSizeOffset, fontWeight: FontWeight.w700, color: AppTokens.textSecondary)),
                       const SizedBox(width: 8),
                       Icon(_expanded ? Icons.expand_less : Icons.expand_more, size: 16, color: AppTokens.textSecondary),
                     ],
@@ -93,7 +102,7 @@ class _GoalCardState extends State<GoalCard> {
             ],
             const Divider(height: 1, color: AppTokens.keyOff),
             ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 250),
+              constraints: widget.removeMaxHeight ? const BoxConstraints() : const BoxConstraints(maxHeight: 250),
               child: SingleChildScrollView(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -155,7 +164,7 @@ class _GoalCardState extends State<GoalCard> {
             'Attr Reqs:',
             style: TextStyle(
               fontFamily: AppTokens.fontFamily,
-              fontSize: 8,
+              fontSize: 8 + widget.fontSizeOffset,
               fontWeight: FontWeight.w700,
               color: AppTokens.keyOff,
             ),
@@ -164,7 +173,7 @@ class _GoalCardState extends State<GoalCard> {
             t,
             style: TextStyle(
               fontFamily: AppTokens.fontFamily,
-              fontSize: 8,
+              fontSize: 8 + widget.fontSizeOffset,
               fontWeight: FontWeight.w800,
               color: AppTokens.keyOff,
             ),
@@ -178,7 +187,7 @@ class _GoalCardState extends State<GoalCard> {
   Widget _buildSectionHeader(String title) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
-      child: Text(title, style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 14, fontWeight: FontWeight.w800, color: AppTokens.textPrimary)),
+      child: Text(title, style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 14 + widget.fontSizeOffset, fontWeight: FontWeight.w800, color: AppTokens.textPrimary)),
     );
   }
 
@@ -199,7 +208,7 @@ class _GoalCardState extends State<GoalCard> {
           children: [
             Icon(Icons.add, size: 36, color: AppTokens.primary),
             const SizedBox(width: 4),
-            Text(context.tr('add_goal'), style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 12, fontWeight: FontWeight.w700, color: AppTokens.primary)),
+            Text(context.tr('add_goal'), style: TextStyle(fontFamily: AppTokens.fontFamily, fontSize: 12 + widget.fontSizeOffset, fontWeight: FontWeight.w700, color: AppTokens.primary)),
           ],
         ),
       ),
@@ -376,16 +385,27 @@ class _GoalCardState extends State<GoalCard> {
   // ── Add dialog with search ────────────────────────────────
   void _showAddDialog() {
     final inputFocused = ValueNotifier<bool>(false);
-    CenterDialog.show(
+    showDialog(
       context: context,
-      child: _GoalAddDialogContent(state: context.read<BuilderStateV3>(), loader: DatasetLoader(), inputFocused: inputFocused),
-      onClose: () {
-        // Dead click: if a text field has focus, just unfocus (save on blur), don't close dialog
-        if (inputFocused.value) {
-          FocusManager.instance.primaryFocus?.unfocus();
-          return;
-        }
-        Navigator.of(context).pop();
+      barrierDismissible: true,
+      builder: (dialogContext) {
+        return Dialog(
+          backgroundColor: AppTokens.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTokens.radius),
+            side: BorderSide(color: AppTokens.primary.withValues(alpha: 0.4), width: 1),
+          ),
+          insetPadding: EdgeInsets.symmetric(
+            horizontal: MediaQuery.of(context).size.width * 0.075,
+            vertical: 24,
+          ),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.7,
+            ),
+            child: _GoalAddDialogContent(state: context.read<BuilderStateV3>(), loader: DatasetLoader(), inputFocused: inputFocused),
+          ),
+        );
       },
     );
   }
@@ -730,7 +750,7 @@ class _GoalAddDialogContentState extends State<_GoalAddDialogContent> {
       final expanded = _expandedGroups.contains(key);
       final color = AppTokens.disciplineColours[key] ?? AppTokens.textSecondary;
       slivers.add(SliverPersistentHeader(
-        pinned: expanded && key == lastExpandedDisc,
+        pinned: false,
         delegate: _CategoryHeaderDelegate(
           expanded: expanded,
           child: GestureDetector(
@@ -813,7 +833,7 @@ class _GoalAddDialogContentState extends State<_GoalAddDialogContent> {
         final expanded = _expandedGroups.contains(key);
         if (anims.isEmpty) continue;
         slivers.add(SliverPersistentHeader(
-          pinned: expanded && key == lastExpandedGroup,
+          pinned: false,
           delegate: _CategoryHeaderDelegate(
             expanded: expanded,
             child: GestureDetector(

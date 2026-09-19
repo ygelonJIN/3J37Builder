@@ -39,6 +39,7 @@ class _BuilderScreenState extends State<BuilderScreen> {
   bool _goalExpanded = false;
   final ScrollController _scrollController = ScrollController();
   final GlobalKey<MoreExpandableButtonState> _moreButtonKey = GlobalKey<MoreExpandableButtonState>();
+  bool _isWide = false;
 
   void _dismissKeyboard() {
     FocusScope.of(context).unfocus();
@@ -117,53 +118,44 @@ class _BuilderScreenState extends State<BuilderScreen> {
 
   void _onCardExpandedChanged(bool expanded) {
     final oldExpanded = _cardExpanded;
+    setState(() => _cardExpanded = expanded);
+    if (_isWide) return; // wide mode: don't adjust left scroll
     final offset = _scrollController.offset;
     final isAtTop = offset <= 0;
-    
     if (!isAtTop && oldExpanded != expanded) {
       final adjustment = expanded ? 155.0 : -155.0;
       if (_scrollController.hasClients) {
         _scrollController.jumpTo(offset + adjustment);
       }
     }
-    
-    setState(() {
-      _cardExpanded = expanded;
-    });
   }
 
   void _onMinimapExpandedChanged(bool expanded) {
     final oldExpanded = _minimapExpanded;
+    setState(() => _minimapExpanded = expanded);
+    if (_isWide) return;
     final offset = _scrollController.offset;
     final isAtTop = offset <= 0;
-    
     if (!isAtTop && oldExpanded != expanded) {
       final adjustment = expanded ? 260.0 : -260.0;
       if (_scrollController.hasClients) {
         _scrollController.jumpTo(offset + adjustment);
       }
     }
-    
-    setState(() {
-      _minimapExpanded = expanded;
-    });
   }
 
   void _onGoalExpandedChanged(bool expanded) {
     final oldExpanded = _goalExpanded;
+    setState(() => _goalExpanded = expanded);
+    if (_isWide) return;
     final offset = _scrollController.offset;
     final isAtTop = offset <= 0;
-    
     if (!isAtTop && oldExpanded != expanded) {
       final adjustment = expanded ? 60.0 : -60.0;
       if (_scrollController.hasClients) {
         _scrollController.jumpTo(offset + adjustment);
       }
     }
-    
-    setState(() {
-      _goalExpanded = expanded;
-    });
   }
 
   @override
@@ -229,138 +221,258 @@ class _BuilderScreenState extends State<BuilderScreen> {
     return Consumer<BuilderStateV3>(
       builder: (context, state, _) {
         _currentState = state;
-        return Stack(
-          children: [
-            Positioned.fill(child: Container(color: AppTokens.background)),
-            Positioned.fill(
-              child: Listener(
-                onPointerDown: (_) {
-                  _dismissKeyboard();
-                  _moreButtonKey.currentState?.collapse();
-                },
-                child: NotificationListener<UserScrollNotification>(
-                  onNotification: (_) {
-                    _dismissKeyboard();
-                    return false;
-                  },
-                  child: SingleChildScrollView(
-                    controller: _scrollController,
-                    padding: EdgeInsets.fromLTRB(
-                      AppTokens.pageEdge,
-                      topInset,
-                      AppTokens.pageEdge,
-                      AppTokens.contentBottomInset,
+
+        // The scrollable attribute list (narrow mode uses topInset, wide mode uses0)
+        Widget buildAttributeScroll(double topPadding) => Listener(
+          onPointerDown: (_) {
+            _dismissKeyboard();
+            _moreButtonKey.currentState?.collapse();
+          },
+          child: NotificationListener<UserScrollNotification>(
+            onNotification: (_) {
+              _dismissKeyboard();
+              return false;
+            },
+            child: SingleChildScrollView(
+              controller: _scrollController,
+              padding: EdgeInsets.fromLTRB(
+                AppTokens.pageEdge,
+                topPadding,
+                AppTokens.pageEdge,
+                AppTokens.contentBottomInset,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [AttributeGroups()],
+              ),
+            ),
+          ),
+        );
+        final attributeScroll = buildAttributeScroll(topInset);
+
+        // Bottom "More" button
+        Widget moreButton = Positioned(
+          bottom: 0,
+          left: 0,
+          right: 0,
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(AppTokens.pageEdge, 12, AppTokens.pageEdge, 20),
+              child: Row(
+                children: [
+                  const Spacer(),
+                  MoreExpandableButton(
+                    key: _moreButtonKey,
+                    onSave: _saveAndOpenMyB,
+                    onMyBuilds: _openMyB,
+                    onMoves: _openMoves,
+                    onBadges: _openBadges,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final isWide = constraints.maxWidth >= 900;
+            _isWide = isWide;
+
+            // The 3 top cards widget (created here so _isWide is set)
+            final cardSpacing = isWide ? 16.0 : 8.0;
+            final fontOffset = isWide ? 2.0 : 0.0;
+            Widget threeCards = Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                OverallDisplay(onExpandedChanged: _onCardExpandedChanged, initialExpanded: isWide, fontSizeOffset: fontOffset),
+                SizedBox(height: cardSpacing),
+                GoalCard(onExpandedChanged: _onGoalExpandedChanged, initialExpanded: isWide, removeMaxHeight: isWide, fontSizeOffset: fontOffset),
+                SizedBox(height: cardSpacing),
+                AttributeFloatingCard(
+                  lockedAttributes: state.lockedAttributes,
+                  onToggleLock: state.toggleAttributeLock,
+                  onExpandedChanged: _onMinimapExpandedChanged,
+                  initialExpanded: isWide,
+                  fontSizeOffset: fontOffset,
+                ),
+              ],
+            );
+
+            if (isWide) {
+              // WIDE: left half = attributes + more button, right half = 3 cards only
+              final ovr = state.overallRating;
+              final loader = DatasetLoader();
+              final preciseOvr = loader.getOvr(state.position, state.heightInches, state.baseRatings);
+
+              // Minimap OVR display for wide mode (matches AttributeFloatingCard style)
+              Widget minimapButton = RichText(
+                text: TextSpan(
+                  children: [
+                    TextSpan(
+                      text: '$ovr',
+                      style: AppTokens.brandMark.copyWith(fontSize: 23, letterSpacing: 0),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    TextSpan(
+                      text: ' (${preciseOvr.toStringAsFixed(1)})',
+                      style: TextStyle(
+                        fontFamily: AppTokens.fontFamily,
+                        fontSize: 14,
+                        color: AppTokens.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+
+              // Wide mode more button with minimap to its left
+              Widget wideMoreButton = Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(AppTokens.pageEdge, 12, AppTokens.pageEdge, 20),
+                    child: Row(
                       children: [
-                        AttributeGroups(),
+                        const Spacer(),
+                        minimapButton,
+                        const SizedBox(width: 8),
+                        MoreExpandableButton(
+                          key: _moreButtonKey,
+                          onSave: _saveAndOpenMyB,
+                          onMyBuilds: _openMyB,
+                          onMoves: _openMoves,
+                          onBadges: _openBadges,
+                        ),
                       ],
                     ),
                   ),
                 ),
-              ),
-            ),
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: IgnorePointer(
-                child: SizedBox(
-                  height: AppTokens.topScrimHeight,
-                  child: const DecoratedBox(
-                    decoration: BoxDecoration(gradient: AppTokens.topScrim),
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: SafeArea(
-                bottom: false,
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    AppTokens.pageEdge,
-                    AppTokens.topChromeInset,
-                    AppTokens.pageEdge,
-                    0,
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          children: [
-                            OverallDisplay(
-                              onExpandedChanged: _onCardExpandedChanged,
-                            ),
-                            const SizedBox(height: 8),
-                            GoalCard(
-                              onExpandedChanged: _onGoalExpandedChanged,
-                            ),
-                            const SizedBox(height: 8),
-                            AttributeFloatingCard(
-                              lockedAttributes: state.lockedAttributes,
-                              onToggleLock: state.toggleAttributeLock,
-                              onExpandedChanged: _onMinimapExpandedChanged,
-                            ),
-                          ],
+              );
+
+              return Stack(
+                children: [
+                  Positioned.fill(child: Container(color: AppTokens.background)),
+                  // Left-right split
+                  Positioned.fill(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // LEFT half: attributes + more button, no top scrim
+                        Expanded(
+                          child: Stack(
+                            children: [
+                              Positioned.fill(child: buildAttributeScroll(0)),
+                              // Bottom scrim only (no top scrim in wide mode)
+                              Positioned(
+                                bottom: 0, left: 0, right: 0,
+                                child: IgnorePointer(
+                                  child: SizedBox(
+                                    height: AppTokens.bottomScrimHeight + MediaQuery.of(context).padding.bottom,
+                                    child: const DecoratedBox(decoration: BoxDecoration(gradient: AppTokens.bottomScrim)),
+                                  ),
+                                ),
+                              ),
+                              // More button with minimap
+                              wideMoreButton,
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                        // RIGHT half: scrollable 3 cards, no top scrim
+                        Expanded(
+                          child: Stack(
+                            children: [
+                              Positioned.fill(child: Container(color: AppTokens.background)),
+                              // Scrollable cards - with top spacing
+                              Positioned.fill(
+                                child: SingleChildScrollView(
+                                  padding: EdgeInsets.fromLTRB(
+                                    AppTokens.pageEdge,
+                                    AppTokens.topChromeInset,
+                                    AppTokens.pageEdge,
+                                    AppTokens.contentBottomInset,
+                                  ),
+                                  child: threeCards,
+                                ),
+                              ),
+                              // Bottom scrim only
+                              Positioned(
+                                bottom: 0, left: 0, right: 0,
+                                child: IgnorePointer(
+                                  child: SizedBox(
+                                    height: AppTokens.bottomScrimHeight + MediaQuery.of(context).padding.bottom,
+                                    child: const DecoratedBox(decoration: BoxDecoration(gradient: AppTokens.bottomScrim)),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // MyB page overlay
+                  if (_showMyB) MyBPage(
+                    onClose: _closeMyB,
+                    onEditBuild: (name) { debugPrint('[EditBuild] Setting _editingBuildName: $name'); setState(() => _editingBuildName = name); },
+                    onSwipeBack: _closeMyB,
+                    builderState: state,
+                  ),
+                ],
+              );
+            }
+
+            // NARROW: original layout
+            return Stack(
+              children: [
+                Positioned.fill(child: Container(color: AppTokens.background)),
+                Positioned.fill(child: attributeScroll),
+                // Top gradient scrim
+                Positioned(
+                  top: 0, left: 0, right: 0,
+                  child: IgnorePointer(
+                    child: SizedBox(
+                      height: AppTokens.topScrimHeight,
+                      child: const DecoratedBox(decoration: BoxDecoration(gradient: AppTokens.topScrim)),
+                    ),
                   ),
                 ),
-              ),
-            ),
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: IgnorePointer(
-                child: SizedBox(
-                  height: AppTokens.bottomScrimHeight + MediaQuery.of(context).padding.bottom,
-                  child: const DecoratedBox(
-                    decoration: BoxDecoration(gradient: AppTokens.bottomScrim),
+                // 3 cards at top
+                Positioned(
+                  top: 0, left: 0, right: 0,
+                  child: SafeArea(
+                    bottom: false,
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(AppTokens.pageEdge, AppTokens.topChromeInset, AppTokens.pageEdge, 0),
+                      child: threeCards,
+                    ),
                   ),
                 ),
-              ),
-            ),
-            if (_showMyB) MyBPage(
+                // Bottom gradient scrim
+                Positioned(
+                  bottom: 0, left: 0, right: 0,
+                  child: IgnorePointer(
+                    child: SizedBox(
+                      height: AppTokens.bottomScrimHeight + MediaQuery.of(context).padding.bottom,
+                      child: const DecoratedBox(decoration: BoxDecoration(gradient: AppTokens.bottomScrim)),
+                    ),
+                  ),
+                ),
+                // MyB page overlay
+                if (_showMyB) MyBPage(
                   onClose: _closeMyB,
                   onEditBuild: (name) { debugPrint('[EditBuild] Setting _editingBuildName: $name'); setState(() => _editingBuildName = name); },
                   onSwipeBack: _closeMyB,
                   builderState: state,
                 ),
-            if (!_showMyB) Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: SafeArea(
-                top: false,
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    AppTokens.pageEdge,
-                    12,
-                    AppTokens.pageEdge,
-                    20,
-                  ),
-                  child: Row(
-                    children: [
-                      const Spacer(),
-                      MoreExpandableButton(
-                        key: _moreButtonKey,
-                        onSave: _saveAndOpenMyB,
-                        onMyBuilds: _openMyB,
-                        onMoves: _openMoves,
-                        onBadges: _openBadges,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
+                // More button
+                if (!_showMyB) moreButton,
+              ],
+            );
+          },
         );
       },
     );

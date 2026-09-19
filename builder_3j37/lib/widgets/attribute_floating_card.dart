@@ -11,12 +11,16 @@ class AttributeFloatingCard extends StatefulWidget {
   final Set<int> lockedAttributes;
   final ValueChanged<int> onToggleLock;
   final ValueChanged<bool>? onExpandedChanged;
+  final bool initialExpanded;
+  final double fontSizeOffset;
 
   const AttributeFloatingCard({
     super.key,
     required this.lockedAttributes,
     required this.onToggleLock,
     this.onExpandedChanged,
+    this.initialExpanded = false,
+    this.fontSizeOffset = 0,
   });
 
   @override
@@ -24,7 +28,13 @@ class AttributeFloatingCard extends StatefulWidget {
 }
 
 class _AttributeFloatingCardState extends State<AttributeFloatingCard> {
-  bool _expanded = false;
+  late bool _expanded;
+
+  @override
+  void initState() {
+    super.initState();
+    _expanded = widget.initialExpanded;
+  }
 
   void _toggleExpanded() {
     FocusScope.of(context).unfocus();
@@ -62,14 +72,14 @@ class _AttributeFloatingCardState extends State<AttributeFloatingCard> {
               children: [
                 Text(
                   '$ovr',
-                  style: AppTokens.brandMark.copyWith(fontSize: 18, letterSpacing: 0),
+                  style: AppTokens.brandMark.copyWith(fontSize: 18 + widget.fontSizeOffset, letterSpacing: 0),
                 ),
                 const SizedBox(width: 2),
                 Text(
                   '(${preciseOvr.toStringAsFixed(1)})',
                   style: TextStyle(
                     fontFamily: AppTokens.fontFamily,
-                    fontSize: 9,
+                    fontSize: 9 + widget.fontSizeOffset,
                     fontWeight: FontWeight.w500,
                     color: AppTokens.keyOff,
                   ),
@@ -79,7 +89,7 @@ class _AttributeFloatingCardState extends State<AttributeFloatingCard> {
                   context.tr('minimap'),
                   style: TextStyle(
                     fontFamily: AppTokens.fontFamily,
-                    fontSize: 9,
+                    fontSize: 9 + widget.fontSizeOffset,
                     fontWeight: FontWeight.w500,
                     color: AppTokens.textSecondary,
                   ),
@@ -160,7 +170,7 @@ class _AttributeFloatingCardState extends State<AttributeFloatingCard> {
               context.tr(attr.name),
               style: TextStyle(
                 fontFamily: AppTokens.fontFamily,
-                fontSize: 9,
+                fontSize: 9 + widget.fontSizeOffset,
                 fontWeight: FontWeight.w500,
                 color: nameColor,
               ),
@@ -171,7 +181,7 @@ class _AttributeFloatingCardState extends State<AttributeFloatingCard> {
             '$value',
             style: TextStyle(
               fontFamily: AppTokens.fontFamily,
-              fontSize: 9,
+              fontSize: 9 + widget.fontSizeOffset,
               fontWeight: FontWeight.w700,
               color: xColor,
             ),
@@ -180,7 +190,7 @@ class _AttributeFloatingCardState extends State<AttributeFloatingCard> {
             '/$cap',
             style: TextStyle(
               fontFamily: AppTokens.fontFamily,
-              fontSize: 9,
+              fontSize: 9 + widget.fontSizeOffset,
               fontWeight: FontWeight.w500,
               color: yColor,
             ),
