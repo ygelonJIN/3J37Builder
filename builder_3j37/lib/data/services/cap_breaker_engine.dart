@@ -192,7 +192,7 @@ class CapBreakerEngine {
     required List<int> physicalCaps,
     int maxTiers = 5,
   }) {
-    assert(hasModelData, 'Model data not loaded. Call loadModelData() first.');
+    if (!hasModelData) return [];
 
     final attrIdx = getAttributeIndex(attributeId);
     if (attrIdx < 0) return [];

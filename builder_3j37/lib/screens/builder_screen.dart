@@ -63,14 +63,13 @@ class _BuilderScreenState extends State<BuilderScreen> {
   Future<void> _loadData() async {
     final loader = DatasetLoader();
     await loader.loadEssential();
-    if (mounted) setState(() => _essentialLoading = false);
     await loader.loadHeavy();
-    // Load model into cap breaker engine
+    // Load model into cap breaker engine before showing main UI
     if (loader.modelWeights != null && loader.modelCurves != null) {
       CapBreakerEngine().loadModelData(loader.modelWeights!, loader.modelCurves!, overallScale: loader.modelOverallScale);
       debugPrint('[BuilderScreen] Cap breaker model loaded: ${loader.modelWeights!.length} weights, ${loader.modelCurves!.length} curves');
     }
-    if (mounted) setState(() => _heavyLoading = false);
+    if (mounted) setState(() { _essentialLoading = false; _heavyLoading = false; });
   }
 
   void _openBadges() {

@@ -1,170 +1,73 @@
 # 3J37 Builder — NBA 2K27 MyPLAYER 建模平台
 
-## 项目概述
+> 基于 NBA 2K27 的跨平台 MyPLAYER 建模工具。使用 Flutter 开发，支持 iOS、Android 和 Web。
 
-基于 NBA 2K27 官方数据集构建的跨平台 MyPLAYER 建模工具。使用 Flutter 开发，支持 iOS、Android 和 Web。
+![Flutter](https://img.shields.io/badge/Flutter-3.47.0-02569B?logo=flutter)
+![Dart](https://img.shields.io/badge/Dart-3.13.0-0175C2?logo=dart)
+![Platform](https://img.shields.io/badge/Platform-iOS%20%7C%20Android%20%7C%20Web-brightgreen)
 
-**核心功能：**
-- 选择位置（PG/SG/SF/PF/C）、身高、体重、臂展
-- 21 个属性加减按钮控制，每个有精确上限（来自 tuning 数据）
-- 属性联动约束（提高/降低一个属性会联动相关属性）
-- OVR 总评计算（15 种球员类型，4值 Lerp 映射）
-- OVR 预算系统（总评到 99 时停止加点，只回退当前属性）
-- 53 个徽章系统（解锁/锁定状态、tier 要求、token 消耗、自动降级）
-- 动画系统（解锁状态、属性要求、点击查看详情）
-- Cap Breakers 显示（集成到属性展开区域）
-- 属性高亮逻辑（到上限或 OVR=99 时变灰）
+---
 
-## UI 设计
+## 核心功能
 
-采用 IGotYou 项目风格：
-- **全屏沉浸式**：深墨背景 #1C1B1E + 金色主色 #E0AE40
-- **渐变遮罩**：顶部和底部渐变遮罩，内容滚动时柔和淡出
-- **可展开顶部卡片**：总评 + 位置选择 + 身体数据，点击展开/收起
-- **加减按钮控件**：替代滑块，支持长按连续调整
-- **居中弹窗**：徽章详情使用居中弹窗，背景模糊
+### 球员建模系统
+- **位置选择**：PG / SG / SF / PF / C 五大位置
+- **身体参数**：身高、体重、臂展精确配置，支持 +/- 按钮长按连续调整
+- **21 属性系统**：6 大学科 21 个属性，每个有精确物理上限（来自 tuning 数据）
+- **属性联动约束**：提高/降低一个属性会联动相关属性（精确移植网站逻辑）
 
-## 数据集
+### Cap Breakers 系统（能力突破器）
+- **AI 模型计算**：基于机器学习模型的增益计算，21/21 属性与游戏数据完全匹配
+- **每属性最多 5 个**：集成在属性展开区域，支持一键应用/撤销
+- **状态持久化**：Cap Breaker 应用状态随构建保存
 
-**位置：** `/Volumes/TUF ESD-T1A Media/3J37 Builder/nba2k27-builder-dataset-main/`
+### 徽章系统
+- **53 个徽章**：完整徽章定义、tier 要求、token 消耗
+- **Token/Slot 预算**：6 大学科独立 Token 和 Slot 预算
+- **自动降级**：属性降低时自动降级不满足条件的徽章
+- **身高限制**：徽章详情显示身高限制和当前身高状态
 
-**来源：** NBA 2K HQ 官方 app 的 native rules engine 直接调用测量，非估算。
+### Goal 系统（目标规划）
+- **徽章目标**：设定目标徽章等级，自动计算属性需求
+- **动画目标**：选择目标动画，追踪解锁进度
+- **属性目标**：手动设定属性目标值
+- **约束传播**：目标需求自动约束属性下限
 
-**核心文件：**
-- `tuning/progression_attributes.txt` — 16,114 行完整 tuning 数据
-- `bodies/legal_bodies.json` — 5 个位置的合法身高/体重/臂展范围
-- `bodies/attribute_caps_sample.json` — PG 参考体型的 21 个属性上限（验证样本）
-- `reference/attributes.json` — 21 个属性定义
-- `badges/` — 53 个徽章定义、tier 要求、token 消耗
-- `cap_breakers/gains_by_rating.json` — Cap Breakers 增益数据
-- `animations/glossary.json` — 完整动画列表（2914 个动作）
+### My Builds（我的构建）
+- **本地存储**：使用 SharedPreferences 持久化保存
+- **导入/导出**：支持 JSON 格式导入导出构建数据
+- **分享卡片**：生成 1080x1920 竖版游戏风格分享图片
+- **构建管理**：重命名、删除、编辑已有构建
 
-## 项目结构
+### 国际化支持
+- **中英双语**：完整中文/英文界面切换
+- **自动记忆**：语言选择持久化到本地存储
 
-```
-builder_3j37/
-├── lib/
-│   ├── main.dart                    # 应用入口，主题配置
-│   ├── theme/
-│   │   └── app_tokens.dart          # 设计令牌（颜色、间距、字体、渐变）
-│   ├── data/
-│   │   ├── models/
-│   │   │   ├── enums.dart           # Position, Discipline, BadgeTier
-│   │   │   ├── attribute.dart       # AttributeDef, BodyConfig, LegalBody
-│   │   │   ├── badge_data.dart      # BadgeDef, TierRequirement, TokenCost
-│   │   │   └── animation_data.dart  # AnimTab, AnimGroup, AnimEntry
-│   │   └── services/
-│   │       ├── tuning_parser.dart   # 解析 tuning 数据，属性上限计算，OVR 计算
-│   │       ├── dataset_loader.dart  # 加载所有 JSON 数据集
-│   │       └── builder_state.dart   # 状态管理（Provider），徽章自动降级
-│   ├── screens/
-│   │   └── builder_screen.dart      # 主界面，全屏沉浸式布局
-│   └── widgets/
-│       ├── overall_display.dart     # 可展开顶部卡片（总评+位置+身体）
-│       ├── position_selector.dart   # 位置选择器（5个按钮）
-│       ├── body_configurator.dart   # 身高/体重/臂展加减控件
-│       ├── attribute_group.dart     # 21 属性（加减按钮+徽章+Cap Breakers）
-│       ├── plus_minus_control.dart  # 通用加减按钮组件
-│       ├── badge_panel.dart         # 徽章页面（token 预算+徽章列表）
-│       ├── animation_panel.dart     # 动画页面（标签页+分组+解锁状态）
-│       ├── cap_breakers_panel.dart  # Cap Breakers 面板
-│       └── center_dialog.dart       # 居中弹窗组件（背景模糊）
-├── assets/data/                     # JSON 数据文件
-├── tool/flutter                     # Flutter 入口
-└── tool/analyze                     # 静态检查
-```
+---
 
-## 属性系统
+## 快速开始
 
-### 属性控件
-- **加减按钮**：点击 +/- 调整属性值
-- **长按加速**：300ms 后开始持续调整，600ms 后加速，1秒后更快
-- **显示格式**：`属性名` `[-][+]` `当前值/上限值`
-- **颜色逻辑**：
-  - 当前值：白色（可加）/ 灰色（已满）
-  - 上限值：学科主题色
+### 环境要求
 
-### Cap Breakers
-- 每个属性最多 5 个 Cap Breakers
-- 集成在属性展开区域，徽章下方
-- 使用 `near_caps` 场景数据（优先），回退到 `isolated`
-- 数据来自 `gains_by_rating.json`
+- Flutter SDK 3.47.0+
+- Dart SDK 3.13.0+
+- iOS 12.0+ / Android API 21+ / Chrome 90+
 
-### 属性联动约束
-- 提高 source → target >= source - MaxDelta
-- 降低 source → 传播降低（双向传播）
-
-## 徽章系统
-
-### 徽章显示
-- **已装备**：粗边框（3px），学科主题色
-- **已解锁**：普通边框，右侧方块显示最高等级颜色
-- **未解锁**：半透明，灰色边框
-
-### 徽章详情弹窗
-- 居中弹窗，背景模糊
-- 显示身高限制和当前身高
-- 四个等级（Bronze/Silver/Gold/Hall of Fame）
-- 点击等级框直接装备/卸装
-- 自动降级：属性降低时自动降级不满足条件的徽章
-
-### Token 系统
-- 类别标题显示 Token：`Finishing 15/20`
-- 徽章页面顶部显示总 Token
-- Token 根据属性 rating 计算
-
-## 计算公式
-
-### OVR 总评
-```dart
-// 15 种球员类型，取最高分
-num = sum(w[a] * s(a, r[a]) * r[a] for a in attrs)
-den = sum(w[a] * s(a, r[a])        for a in attrs)
-raw = num / den
-ovr = outMin + (raw - inMin) / (inMax - inMin) * (outMax - outMin)
-```
-
-### 属性上限
-```
-cap = clamp(round(25 + 74 × HeightMult × WeightMult × WingspanMult), 25, 99)
-```
-- 使用 NBA-only 数据（不包含 WNBA），21/21 与游戏实际值完全匹配
-- 验证数据：`bodies/attribute_caps_sample.json`
-
-## UI 规范
-
-### 颜色
-| 角色 | 颜色 | HEX |
-|---|---|---|
-| 背景 | 深墨 | #1C1B1E |
-| 表面 | 暗褐 | #2D2A24 |
-| 主色 | 金色 | #E0AE40 |
-| 文字 | 暖白 | #F2E9D6 |
-
-### 学科颜色
-| 学科 | 颜色 |
-|---|---|
-| Finishing | 蓝色 #3764B3 |
-| Shooting | 绿色 #61AF57 |
-| Playmaking | 橙色 #E29754 |
-| Defense | 红色 #DE574B |
-| Rebounding | 紫色 #9785EA |
-| Physicals | 棕色 #A27D32 |
-
-### 字体
-- 全局：Noto Serif SC（思源宋体）
-- 圆角：2px（直角）
-
-## 运行命令
+### 安装运行
 
 ```bash
-cd "/Volumes/TUF ESD-T1A Media/3J37 Builder/builder_3j37"
+# 克隆项目
+git clone <repository-url>
+cd "3J37 Builder/builder_3j37"
+
+# 获取依赖
+flutter pub get
 
 # 静态检查
 ./tool/analyze
 
 # 运行到 iPhone
-./tool/flutter run -d 00008120-001E38882EF0201E
+./tool/flutter run -d <device-id>
 
 # 运行到 Web
 ./tool/flutter run -d chrome
@@ -173,63 +76,79 @@ cd "/Volumes/TUF ESD-T1A Media/3J37 Builder/builder_3j37"
 ./tool/flutter clean && ./tool/flutter pub get && ./tool/flutter run
 ```
 
-## 技术栈
+---
 
-- Flutter 3.47.0 / Dart 3.13.0
-- Provider 状态管理
-- Google Fonts（思源宋体）
-- 全屏沉浸式 + 渐变遮罩布局
+## 项目结构
+
+```
+builder_3j37/lib/
+├── main.dart                        # 应用入口，主题配置，Provider 注入
+│
+├── data/
+│   ├── models/
+│   │   ├── enums.dart               # Position, Discipline, BadgeTier 枚举
+│   │   ├── attribute.dart           # AttributeDef, BodyConfig, LegalBody
+│   │   ├── badge_data.dart          # BadgeDef, TierRequirement, TokenCost
+│   │   ├── animation_data.dart      # AnimTab, AnimGroup, AnimEntry
+│   │   ├── cap_breaker.dart         # CapBreakerState, CapBreakerApplication
+│   │   ├── build_save.dart          # BuildSave 构建保存模型
+│   │   ├── goal_data.dart           # GoalData, GoalBadge, GoalMove, GoalAttribute
+│   │   └── takeover_data.dart       # TakeoverAbility, TakeoverRequirement
+│   │
+│   └── services/
+│       ├── builder_state_v3.dart    # 状态管理（当前版本）
+│       ├── dataset_loader.dart      # 数据集加载器
+│       ├── tuning_parser.dart       # 解析 tuning 数据，属性上限计算，OVR 计算
+│       ├── cap_breaker_engine.dart  # Cap Breaker AI 模型计算引擎
+│       ├── constraint_graph_logic.dart # 属性联动约束逻辑
+│       ├── website_logic.dart       # 网站核心逻辑移植
+│       └── build_storage_service.dart # 构建存储服务
+│
+├── screens/
+│   └── builder_screen.dart          # 主界面，全屏沉浸式布局
+│
+├── widgets/
+│   ├── overall_display.dart         # 可展开顶部卡片（总评+位置+身体）
+│   ├── position_selector.dart       # 位置选择器
+│   ├── body_configurator.dart       # 身高/体重/臂展加减控件
+│   ├── attribute_group.dart         # 21 属性（加减按钮+徽章+Cap Breakers）
+│   ├── badge_panel.dart             # 徽章页面
+│   ├── animation_panel.dart         # 动画页面
+│   ├── cap_breakers_panel_v3.dart   # Cap Breakers 面板
+│   ├── goal_card.dart               # Goal 目标卡片
+│   ├── takeover_panel.dart          # Takeover 能力面板
+│   ├── myb_page.dart                # My Builds 页面
+│   ├── share_build_card.dart        # 分享卡片生成
+│   ├── center_dialog.dart           # 居中弹窗组件
+│   └── language_switch_button.dart  # 语言切换按钮
+│
+├── theme/
+│   └── app_tokens.dart              # 设计令牌（颜色、间距、字体）
+│
+├── services/
+│   ├── locale_service.dart          # 国际化服务
+│   └── translations.dart            # 翻译文本
+│
+└── extensions/
+    └── context_extensions.dart      # Context 扩展方法
+```
 
 ---
 
-## ⚠️ 已知问题：Cap Breakers 增益体型依赖
+## 数据来源
 
-### 问题描述
+**来源：** NBA 2K HQ 官方 app 的 native rules engine 直接调用测量，非估算。
 
-`gains_by_rating.json` 数据集只包含**一个参考体型**（PG, 6'3/198lbs/6'6臂展）的增益数据。Cap Breaker 增益取决于实际体型（身高、体重、臂展），不同体型有不同的增益值。
+数据集位于 `builder_3j37/assets/data/` 目录。
 
-**验证数据（用户实际测试 vs App显示）：**
+---
 
-中锋 6'11/253lbs/7'2臂展，所有属性25：
+## 技术栈
 
-| 属性 | 游戏实际值 | App显示（PG参考） | 差异 |
-|------|-----------|-------------------|------|
-| Close Shot | 6,5,5,5,5 | 9,8,7,6,6 | ✗ |
-| Free Throw | 13,12,10,8,6 | 14,12,10,8,7 | ✗ |
-| 3PT | 1,1,1,1,1 | 9,9,7,7,6 | ✗ |
-| Speed | 4,4,4,4,3 | 2,2,2,2,2 | ✗ |
+- **Flutter** 3.47.0 / **Dart** 3.13.0
+- **Provider** 状态管理
+- **Google Fonts**（思源宋体）
+- **SharedPreferences** 本地存储
 
-### 根因分析
+---
 
-1. **增益计算函数**：`ATTRIBUTES_GetCapBreakerBoostValuesForAttrAtIndex`（游戏引擎内部函数）
-   - 输入：属性索引 + 玩家体型 + 所有属性状态
-   - 输出：5次 cap breaker 应用的增益值
-   - 该函数不在 tuning 文件中，是游戏引擎内部逻辑
-
-2. **tuning 文件不包含增益公式**：
-   - `progression_attributes.txt` 包含：属性上限乘数、archetype 权重、OVR 计算参数
-   - **不包含**：cap breaker 增益计算公式
-   - 增益由游戏引擎根据"winning archetype"动态计算
-
-3. **游戏二进制无法提取公式**：
-   - Windows 版 `NBA2K27.exe` 不导出游戏逻辑函数（仅导出 GPU 选择函数）
-   - IFF 归档使用 VCZ 压缩（Visual Concepts 专有格式），无法解压
-   - 增益数据不是静态表，是运行时计算的
-
-4. **Cap Breaker 上限 = 物理上限（已验证）**：
-   - 所有21个属性的 cap breaker 增益在达到物理上限 - 1 时停止
-   - 与 `attribute_caps_sample.json` 中的值完全匹配（差值为1，四舍五入原因）
-
-### 可能的解决方案
-
-1. **Native Probe（推荐）**：使用 Android 版 NBA 2K HQ app，通过 `dlopen`/`dlsym` 调用 `ATTRIBUTES_GetCapBreakerBoostValuesForAttrAtIndex`，为多个体型提取完整增益数据。需要 rooted 设备或模拟器。
-
-2. **DLL 注入**：将 DLL 注入 Windows 游戏进程，调用内部函数获取增益。需要游戏运行时执行。
-
-3. **手动测试**：在游戏中创建不同体型的球员，逐个测试所有属性的 cap breaker 增益。
-
-### 当前状态
-
-- 属性上限计算：✓ 完全正确（21/21 匹配）
-- OVR 计算：✓ 完全正确
-- Cap Breaker 增益：✗ 仅对 PG 参考体型准确，其他体型不准确

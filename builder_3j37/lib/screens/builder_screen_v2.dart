@@ -59,15 +59,14 @@ class _BuilderScreenV2State extends State<BuilderScreenV2> {
     
     // Load essential data
     await loader.loadEssential();
-    if (mounted) setState(() => _essentialLoading = false);
     
     // Load heavy data including cap breaker gains
     await loader.loadHeavy();
     
-    // Initialize cap breaker engine
+    // Initialize cap breaker engine before showing main UI
     await _initializeCapBreakerEngine();
     
-    if (mounted) setState(() => _heavyLoading = false);
+    if (mounted) setState(() { _essentialLoading = false; _heavyLoading = false; });
   }
 
   Future<void> _initializeCapBreakerEngine() async {

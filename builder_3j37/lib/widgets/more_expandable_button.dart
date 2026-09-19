@@ -109,7 +109,9 @@ class MoreExpandableButtonState extends State<MoreExpandableButton>
       textDirection: TextDirection.ltr,
       child: DefaultTextStyle(
         style: const TextStyle(decoration: TextDecoration.none),
-        child: Stack(
+        child: Material(
+          type: MaterialType.transparency,
+          child: Stack(
           children: [
             // Tap-outside barrier
             Positioned.fill(
@@ -177,7 +179,8 @@ class MoreExpandableButtonState extends State<MoreExpandableButton>
                 ),
               ),
             ),
-          ],
+            ],
+          ),
         ),
       ),
     );
